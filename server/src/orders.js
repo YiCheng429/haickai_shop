@@ -37,7 +37,7 @@ function rowToOrder(row, items) {
     phone: row.phone,
     email: row.email,
     storeName: row.store_name,
-    storeId: row.store_id,
+    storeId: row.store_id ? String(row.store_id).trim() : null,
     note: row.note,
     subtotal: row.subtotal,
     shipping: row.shipping_fee,

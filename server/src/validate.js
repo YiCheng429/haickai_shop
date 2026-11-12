@@ -33,7 +33,8 @@ function validateOrder(body) {
   const phone = normalizePhone(body.phone);
   const email = cleanText(body.email).toLowerCase();
   const storeName = cleanText(body.storeName);
-  const storeId = cleanText(String(body.storeId ?? ""));
+  const storeIdRaw = cleanText(body.storeId == null ? "" : String(body.storeId));
+  let storeId = null;
   const note = cleanText(body.note ?? "", { multiline: true });
 
   if (!name) errors.name = "請填寫取件人姓名";
@@ -46,7 +47,10 @@ function validateOrder(body) {
   if (!storeName) errors.storeName = "請填寫取貨門市名稱";
   else if (storeName.length > 50) errors.storeName = "門市名稱最多 50 字";
 
-  if (!STORE_ID_RE.test(storeId)) errors.storeId = "請填寫 6 碼門市店號";
+  if (storeIdRaw) {
+    if (!STORE_ID_RE.test(storeIdRaw)) errors.storeId = "門市店號若填寫須為 6 碼數字";
+    else storeId = storeIdRaw;
+  }
 
   if (body.note !== undefined && body.note !== null && typeof body.note !== "string") errors.note = "備註格式不正確";
   else if (note.length > 500) errors.note = "備註最多 500 字";

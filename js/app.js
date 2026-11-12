@@ -111,12 +111,6 @@ function resetPendingOrder() {
   state.idempotencyKey = "";
 }
 
-/* 線上下單成功後隱藏「複製訂單內容」（訂單已存在伺服器，無需再寄信）；購物車有變動時再顯示 */
-function setCopyOrderVisible(visible) {
-  const btn = document.getElementById("copy-order");
-  if (btn) btn.hidden = !visible;
-}
-
 function escapeHtml(value) {
   return String(value ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
 }
@@ -242,7 +236,6 @@ function renderProducts() {
 }
 
 function addToCart(id, qty) {
-  setCopyOrderVisible(true);
   const existing = state.cart.find((i) => i.id === id);
   if (existing) existing.qty = Math.min(MAX_QTY, existing.qty + qty);
   else state.cart.push({ id, qty: Math.min(MAX_QTY, qty) });
@@ -252,7 +245,6 @@ function addToCart(id, qty) {
 }
 
 function setCartQty(id, qty) {
-  setCopyOrderVisible(true);
   if (qty <= 0) state.cart = state.cart.filter((i) => i.id !== id);
   else {
     const item = state.cart.find((i) => i.id === id);
@@ -337,37 +329,25 @@ function ensureOrderNo() {
 
 function buildOrderText() {
   const b = buyerValues();
-  const orderNo = state.orderNo || "（送出時產生）";
   const lines = [];
-  lines.push(`【${CONFIG.brandName} ${CONFIG.brandNameEn} 訂單】`);
-  lines.push(`訂單編號：${orderNo}`);
-  lines.push(`網站：${location.origin}${location.pathname}`);
-  lines.push("");
-  lines.push(`取件人姓名：${b.name || "（尚未填寫）"}`);
-  lines.push(`電話：${b.phone || "（尚未填寫）"}`);
-  lines.push(`Email：${b.email || "（尚未填寫）"}`);
-  lines.push(`取貨門市：${b.storeName || "（尚未填寫）"}`);
-  lines.push(`門市店號：${b.storeNo || "（尚未填寫）"}`);
-  lines.push(`備註：${b.notes || "（無）"}`);
-  lines.push("");
-  lines.push("商品：");
   if (!state.cart.length) lines.push("（購物車是空的）");
   else {
     state.cart.forEach((item) => {
       const p = productById(item.id);
-      lines.push(`- ${p.name} × ${item.qty}　${formatNT(p.price * item.qty)}`);
+      if (p) lines.push(`${p.name} × ${item.qty}　${formatNT(p.price * item.qty)}`);
     });
   }
   const sub = cartSubtotal();
-  const ship = shippingFee(sub);
-  lines.push("");
+  const ship = state.cart.length ? shippingFee(sub) : 0;
   lines.push(`商品小計：${formatNT(sub)}`);
-  lines.push(`運費（${CONFIG.shippingName}）：${state.cart.length && ship === 0 ? "免運（滿 " + formatNT(CONFIG.freeShippingThreshold) + "）" : formatNT(state.cart.length ? ship : 0)}`);
-  lines.push(`合計：${formatNT(sub + (state.cart.length ? ship : 0))}`);
-  lines.push("");
-  lines.push("付款方式：匯款／轉帳（請等候賣家來回信提供帳戶資訊；匯款後請回信告知轉出帳號後五碼，確認收款後出貨）。");
-  lines.push("配送：7-ELEVEN 交貨便店到店。交貨便寄件成立後，取貨通知會以 Email 與簡訊傳送給你。");
-  lines.push(`若郵件未能自動開啟，請將此內容寄至 ${CONFIG.email}`);
+  lines.push(`運費：${state.cart.length && ship === 0 ? "免運" : formatNT(ship)}`);
+  lines.push(`合計：${formatNT(sub + ship)}`);
+  if (b.name) lines.push(`取件人：${b.name}`);
+  if (b.phone) lines.push(`電話：${b.phone}`);
+  if (b.email) lines.push(`Email：${b.email}`);
+  if (b.storeName) lines.push(`取貨門市：${b.storeName}`);
+  if (b.storeNo) lines.push(`門市店號：${b.storeNo}`);
+  if (b.notes) lines.push(`備註：${b.notes}`);
   return lines.join("\n");
 }
 
@@ -416,39 +396,18 @@ function validateBuyer() {
     return false;
   }
   const storeDigits = b.storeNo.replace(/\D/g, "");
-  if (storeDigits.length !== 6) {
-    toast("請填寫 6 碼門市店號");
+  if (storeDigits && storeDigits.length !== 6) {
+    toast("門市店號若填寫須為 6 碼數字");
     document.getElementById("store-no")?.focus();
     return false;
   }
   return true;
 }
 
-async function copyOrder() {
-  const text = buildOrderText();
-  try {
-    await navigator.clipboard.writeText(text);
-    toast("訂單內容已複製");
-    return true;
-  } catch {
-    const area = document.getElementById("order-text");
-    area?.focus();
-    area?.select();
-    try {
-      document.execCommand("copy");
-      toast("訂單內容已複製");
-      return true;
-    } catch {
-      toast("請手動全選並複製訂單內容");
-      return false;
-    }
-  }
-}
-
 function mailtoHref() {
   const orderNo = ensureOrderNo();
   const subject = `${CONFIG.brandName}訂單 ${orderNo}`;
-  const body = buildOrderText();
+  const body = `訂單編號：${orderNo}\n` + buildOrderText();
   return `mailto:${CONFIG.email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
 }
 
@@ -459,7 +418,7 @@ function showConfirmation() {
   const body = document.getElementById("confirm-body");
   if (title) title.textContent = "訂單已準備送出";
   if (body) {
-    body.innerHTML = `<p>你的訂單編號是 <span class="order-no">${escapeHtml(state.orderNo)}</span>。請在郵件視窗中按下傳送。我們會回信提供匯款資訊，匯款後請回信告知轉出帳號後五碼；確認收款後，將以 7-ELEVEN 交貨便店到店寄至你指定的門市，約 3 至 5 個工作天出貨；交貨便寄件成立後，取貨通知會以 Email 與簡訊傳送給你。若郵件沒有開啟，請將上方訂單內容寄至 ${escapeHtml(CONFIG.email)}。</p>`;
+    body.innerHTML = `<p>你的訂單編號是 <span class="order-no">${escapeHtml(state.orderNo)}</span>。請在開啟的郵件視窗中按下傳送；若郵件沒有開啟，請來信 ${escapeHtml(CONFIG.email)}。</p>`;
   }
   box?.classList.remove("is-error");
   box?.classList.add("is-visible");
@@ -482,7 +441,6 @@ function showServerConfirmation(order, payment) {
         ${payment.accountName ? `<dt>戶名</dt><dd>${escapeHtml(payment.accountName)}</dd>` : ""}
       </dl>`;
   }
-  setCopyOrderVisible(false);
   if (title) title.textContent = "訂單已成立";
   if (body) {
     body.innerHTML = `
@@ -512,13 +470,11 @@ const FIELD_INPUT_IDS = {
   note: "buyer-notes"
 };
 
-/* Email 備援：沿用原本的複製＋mailto 流程 */
+/* Email 備援：API 無法使用時改以 mailto 預填訂單內容 */
 async function submitOrderByEmail() {
   ensureOrderNo();
   updateOrderText();
-  await copyOrder();
-  const href = mailtoHref();
-  window.location.href = href;
+  window.location.href = mailtoHref();
   showConfirmation();
 }
 
@@ -540,7 +496,7 @@ async function submitOrder() {
     phone: normalizePhone(b.phone),
     email: b.email,
     storeName: b.storeName,
-    storeId: b.storeNo.replace(/\D/g, ""),
+    storeId: b.storeNo.replace(/\D/g, "") || "",
     note: b.notes,
     items: state.cart.map((i) => ({ id: i.id, qty: i.qty }))
   };
@@ -713,7 +669,7 @@ async function lookupOrder(e) {
   const rows = [
     ["下單時間", formatDateTime(o.createdAt)],
     ["取件人", o.name],
-    ["取貨門市", `${o.storeName}（${o.storeId}）`],
+    ["取貨門市", o.storeId ? `${o.storeName}（${o.storeId}）` : o.storeName],
     ["應付金額", `${formatNT(o.total)}（運費 ${o.shipping === 0 ? "免運" : formatNT(o.shipping)}）`]
   ];
   if (o.paidAt) rows.push(["確認收款", formatDateTime(o.paidAt)]);
@@ -751,13 +707,6 @@ function bindUi() {
 
   ["buyer-name", "buyer-phone", "buyer-email", "store-name", "store-no", "buyer-notes"].forEach((id) => {
     document.getElementById(id)?.addEventListener("input", updateOrderText);
-  });
-  document.getElementById("copy-order")?.addEventListener("click", async () => {
-    if (!validateBuyer()) return;
-    ensureOrderNo();
-    updateOrderText();
-    await copyOrder();
-    showConfirmation();
   });
   document.getElementById("submit-order")?.addEventListener("click", submitOrder);
   document.getElementById("lookup-form")?.addEventListener("submit", lookupOrder);

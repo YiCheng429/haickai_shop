@@ -27,6 +27,8 @@
 html {
   scroll-behavior: smooth;
   scroll-padding-top: calc(var(--header-h) + 12px);
+  overflow-x: hidden;
+  max-width: 100%;
 }
 
 body {
@@ -36,6 +38,8 @@ body {
   background: var(--bg);
   line-height: 1.75;
   -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
+  max-width: 100%;
 }
 
 img { max-width: 100%; height: auto; display: block; }
@@ -67,6 +71,8 @@ p:last-child { margin-bottom: 0; }
 .container {
   width: min(100% - 2.5rem, var(--container));
   margin-inline: auto;
+  min-width: 0;
+  max-width: 100%;
 }
 
 /* Header */
@@ -74,6 +80,8 @@ p:last-child { margin-bottom: 0; }
   position: sticky;
   top: 0;
   z-index: 40;
+  width: 100%;
+  max-width: 100%;
   height: var(--header-h);
   display: flex;
   align-items: center;
@@ -89,6 +97,8 @@ p:last-child { margin-bottom: 0; }
   gap: 1rem;
   width: min(100% - 2.5rem, var(--container));
   margin-inline: auto;
+  min-width: 0;
+  max-width: 100%;
 }
 
 .logo {
@@ -353,7 +363,8 @@ p:last-child { margin-bottom: 0; }
 .policy-card p { color: var(--muted); font-size: 0.94rem; }
 
 /* Cart / checkout */
-.cart-layout { display: grid; gap: 2rem; }
+.cart-layout { display: grid; gap: 2rem; min-width: 0; }
+.panel { min-width: 0; max-width: 100%; }
 .panel h3 {
   font-size: 1.05rem;
   margin-bottom: 1rem;
@@ -385,8 +396,9 @@ p:last-child { margin-bottom: 0; }
 .cart-item .qty { width: max-content; margin-top: 0.4rem; }
 
 .totals { margin-top: 1rem; display: grid; gap: 0.4rem; font-size: 0.95rem; }
-.totals div { display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem; }
-.totals div span:last-child { white-space: nowrap; }
+.totals div { display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem; min-width: 0; }
+.totals div span:first-child { min-width: 0; overflow-wrap: anywhere; }
+.totals div span:last-child { white-space: nowrap; flex: 0 0 auto; }
 .totals .grand {
   font-weight: 600;
   font-size: 1.05rem;
@@ -403,7 +415,8 @@ p:last-child { margin-bottom: 0; }
   background: var(--paper);
 }
 
-.form-grid { display: grid; gap: 0.85rem; }
+.form-grid { display: grid; gap: 0.85rem; min-width: 0; }
+label { min-width: 0; }
 label {
   display: grid;
   gap: 0.3rem;
@@ -414,6 +427,8 @@ label {
 }
 input[type="text"], input[type="tel"], input[type="email"], textarea {
   width: 100%;
+  max-width: 100%;
+  min-width: 0;
   border: 0;
   border-bottom: 1px solid var(--line-strong);
   border-radius: 0;
@@ -430,14 +445,18 @@ input:focus, textarea:focus {
 textarea { min-height: 4.5rem; resize: vertical; }
 .field-row { display: grid; gap: 0.85rem; }
 .store-help { font-size: 0.8rem; font-weight: 400; letter-spacing: 0; }
-.store-help a, .note a, .faq-body a { white-space: nowrap; }
+.store-help a, .note a, .faq-body a, .contact-block a { overflow-wrap: anywhere; word-break: break-word; }
 .order-text {
   width: 100%;
-  min-height: 12rem;
+  max-width: 100%;
+  min-width: 0;
+  min-height: 8rem;
   font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
   font-size: 0.8rem;
   line-height: 1.55;
   white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  word-break: break-word;
   border: 1px solid var(--line);
   border-bottom: 1px solid var(--line);
   padding: 0.8rem;
@@ -490,6 +509,8 @@ textarea { min-height: 4.5rem; resize: vertical; }
   text-decoration: none;
   letter-spacing: 0.04em;
   border-bottom: 1px solid var(--gold);
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 .contact-block a:hover { color: var(--gold-deep); }
 .contact-block p { color: var(--muted); margin-top: 0.8rem; }
@@ -501,6 +522,8 @@ textarea { min-height: 4.5rem; resize: vertical; }
   background: #2c2a26;
   color: #e8e2d6;
   text-align: center;
+  width: 100%;
+  max-width: 100%;
 }
 .site-footer a { color: #d4c4a0; }
 .site-footer .foot-brand {
@@ -526,6 +549,10 @@ textarea { min-height: 4.5rem; resize: vertical; }
   opacity: 0;
   transition: transform 0.35s var(--ease), opacity 0.35s;
   pointer-events: none;
+  max-width: calc(100% - 2rem);
+  box-sizing: border-box;
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 .toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
 

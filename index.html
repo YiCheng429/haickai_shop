@@ -2,7 +2,7 @@
 <html lang="zh-Hant-TW">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
   <title>微光盲盒 Glimmer Box｜飾品盲盒</title>
   <meta name="description" content="微光盲盒販售項鍊、手鍊、戒指與綜合驚喜盒。確認匯款後，以 7-ELEVEN 交貨便店到店寄送。">
   <link rel="icon" href="images/favicon.svg" type="image/svg+xml">
@@ -98,12 +98,12 @@
           <article class="step">
             <div class="step-num">02</div>
             <h3>填寫取件資料</h3>
-            <p>留下姓名、電話、Email，以及 7-ELEVEN 取貨門市名稱與店號。</p>
+            <p>留下姓名、電話、Email，以及 7-ELEVEN 取貨門市名稱；門市店號可選填。</p>
           </article>
           <article class="step">
             <div class="step-num">03</div>
             <h3>送出訂單</h3>
-            <p>系統會開啟寄給我們的郵件並產生訂單編號。若郵件未能開啟，請複製訂單內容後自行寄出。</p>
+            <p>系統會建立訂單並產生訂單編號，畫面會顯示匯款資訊。之後可在「訂單查詢」查看進度。</p>
           </article>
           <article class="step">
             <div class="step-num">04</div>
@@ -189,8 +189,8 @@
                 <label>取貨門市名稱
                   <input id="store-name" type="text" name="store-name" placeholder="例如：台北市XX門市" required>
                 </label>
-                <label>門市店號（6 碼）
-                  <input id="store-no" type="text" name="store-no" inputmode="numeric" maxlength="6" placeholder="例如：123456" required>
+                <label>門市店號（選填，6 碼）
+                  <input id="store-no" type="text" name="store-no" inputmode="numeric" maxlength="6" placeholder="例如：123456">
                 </label>
               </div>
               <p class="store-help">不確定門市名稱或店號？請至 <a data-href="storeLookup" href="https://emap.pcsc.com.tw/" target="_blank" rel="noopener noreferrer">7-ELEVEN 電子地圖</a> 查詢後填入。</p>
@@ -203,15 +203,14 @@
             </div>
             <div class="checkout-actions">
               <button type="button" class="btn btn-ink" id="submit-order">送出訂單</button>
-              <button type="button" class="btn btn-ghost" id="copy-order">複製訂單內容</button>
             </div>
             <p class="note">
-              按下送出後，系統會建立訂單並顯示訂單編號、應付金額與匯款資訊，可隨時於下方「訂單查詢」確認進度。若線上下單暫時無法使用，會改為開啟你的電子郵件並預填訂單內容，收件人為 <a data-href="email" href="mailto:haickaiservice@gmail.com">haickaiservice@gmail.com</a>，請確認後按下傳送；若郵件未能開啟，請複製訂單內容自行寄到同一信箱。付款方式為匯款／轉帳。
+              送出後會產生訂單編號，並顯示應付金額與匯款資訊，可隨時在「訂單查詢」查看進度。付款方式為匯款／轉帳。
             </p>
             <div class="confirm" id="order-confirm" role="status">
               <h4 id="confirm-title">訂單已準備送出</h4>
               <div id="confirm-body">
-                <p>你的訂單編號是 <span class="order-no" id="confirm-order-no"></span>。請在郵件視窗中按下傳送。我們會回信提供匯款資訊，匯款後請回信告知轉出帳號後五碼；確認收款後，將以 7-ELEVEN 交貨便店到店寄至你指定的門市，約 3 至 5 個工作天出貨；交貨便寄件成立後，取貨通知會以 Email 與簡訊傳送給你。若郵件沒有開啟，請將上方訂單內容寄至 haickaiservice@gmail.com。</p>
+                <p>你的訂單編號是 <span class="order-no" id="confirm-order-no"></span>。請在開啟的郵件視窗中按下傳送；若郵件沒有開啟，請來信 haickaiservice@gmail.com。</p>
               </div>
             </div>
           </div>
@@ -229,7 +228,7 @@
           <details class="faq-item" open>
             <summary>如何配送？</summary>
             <div class="faq-body">
-              <p>我們以個人寄件方式，透過 <strong>7-ELEVEN 交貨便</strong>店到店寄出。請在訂單中填寫取貨門市名稱與 6 碼店號，可至 <a href="https://emap.pcsc.com.tw/" target="_blank" rel="noopener noreferrer">7-ELEVEN 電子地圖</a> 查詢。確認收款後約 3 至 5 個工作天寄出；本島交貨便一般為今日 17:00 前交寄、後天 12:00 後可取（特殊門市或假日可能順延）。交貨便寄件成立後，取貨通知會以 <strong>Email 與簡訊</strong>傳送給你；包裹到店後請依通知，於期限內憑證件取貨。</p>
+              <p>我們以個人寄件方式，透過 <strong>7-ELEVEN 交貨便</strong>店到店寄出。請在訂單中填寫取貨門市名稱，店號可選填，可至 <a href="https://emap.pcsc.com.tw/" target="_blank" rel="noopener noreferrer">7-ELEVEN 電子地圖</a> 查詢。確認收款後約 3 至 5 個工作天寄出；本島交貨便一般為今日 17:00 前交寄、後天 12:00 後可取（特殊門市或假日可能順延）。交貨便寄件成立後，取貨通知會以 <strong>Email 與簡訊</strong>傳送給你；包裹到店後請依通知，於期限內憑證件取貨。</p>
             </div>
           </details>
           <details class="faq-item">

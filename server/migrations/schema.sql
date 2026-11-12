@@ -17,7 +17,7 @@ CREATE TABLE IF NOT EXISTS orders (
   phone            VARCHAR(10)  NOT NULL,
   email            VARCHAR(254) NOT NULL,
   store_name       VARCHAR(50)  NOT NULL,
-  store_id         CHAR(6)      NOT NULL,
+  store_id         VARCHAR(6),
   note             VARCHAR(500) NOT NULL DEFAULT '',
   subtotal         INTEGER      NOT NULL CHECK (subtotal >= 0),
   shipping_fee     INTEGER      NOT NULL CHECK (shipping_fee >= 0),
@@ -62,3 +62,23 @@ BEGIN
   END IF;
 END$$;
 CREATE INDEX IF NOT EXISTS idx_orders_reported ON orders (payment_reported_at DESC) WHERE status = 'pending_payment' AND payment_last5 IS NOT NULL;
+
+-- 門市店號改為選填：允許 NULL，並將 CHAR(6) 改為 VARCHAR(6) 以免空白被補齊
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public' AND table_name = 'orders' AND column_name = 'store_id'
+      AND is_nullable = 'NO'
+  ) THEN
+    ALTER TABLE orders ALTER COLUMN store_id DROP NOT NULL;
+  END IF;
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public' AND table_name = 'orders' AND column_name = 'store_id'
+      AND data_type = 'character'
+  ) THEN
+    ALTER TABLE orders ALTER COLUMN store_id TYPE VARCHAR(6);
+  END IF;
+END$$;
+UPDATE orders SET store_id = NULLIF(btrim(store_id), '') WHERE store_id IS NOT NULL;

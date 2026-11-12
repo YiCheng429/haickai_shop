@@ -23,7 +23,7 @@ function orderText(order, payment) {
     `取件人姓名：${order.name}`,
     `電話：${order.phone}`,
     `Email：${order.email}`,
-    `取貨門市：${order.storeName}（店號 ${order.storeId}）`,
+    `取貨門市：${order.storeName}${order.storeId ? `（店號 ${order.storeId}）` : ''}`,
     `備註：${order.note || "（無）"}`,
     "",
     "商品："

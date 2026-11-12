@@ -234,7 +234,7 @@
     $("d-phone").textContent = o.phone;
     $("d-email").replaceChildren(el("a", { href: "mailto:" + o.email }, o.email));
     $("d-store-name").textContent = o.storeName;
-    $("d-store-id").textContent = o.storeId;
+    $("d-store-id").textContent = o.storeId || "（未填）";
     $("d-items").replaceChildren(
       ...o.items.map((i) => el("li", {}, el("span", {}, `${i.name} × ${i.qty}（${nt(i.unitPrice)}）`), el("span", {}, nt(i.lineTotal))))
     );
@@ -289,7 +289,7 @@
       `取件人：${o.name}`,
       `手機：${o.phone}`,
       `取貨門市：${o.storeName}`,
-      `門市店號：${o.storeId}`,
+      `門市店號：${o.storeId || '（未填）'}`,
       `商品價值：${o.subtotal}`,
       `訂單編號：${o.orderNo}`,
       `內容：${o.items.map((i) => `${i.name}×${i.qty}`).join("、")}`

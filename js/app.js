@@ -428,7 +428,21 @@ function bindUi() {
   });
 }
 
+// 每次進入網站都從頁面最上方開始
+if ("scrollRestoration" in history) history.scrollRestoration = "manual";
+function scrollToTopOnEnter() {
+  if (location.hash) history.replaceState(null, "", location.pathname + location.search);
+  const html = document.documentElement;
+  const prev = html.style.scrollBehavior;
+  html.style.scrollBehavior = "auto";
+  window.scrollTo(0, 0);
+  html.style.scrollBehavior = prev;
+}
+window.addEventListener("pageshow", scrollToTopOnEnter);
+window.addEventListener("load", scrollToTopOnEnter);
+
 document.addEventListener("DOMContentLoaded", () => {
+  scrollToTopOnEnter();
   applyBrand();
   renderProducts();
   renderCart();

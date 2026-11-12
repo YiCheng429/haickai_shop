@@ -17,6 +17,7 @@ server/
 ├── Dockerfile            # 以 blindbox-shop/ 為 build context
 ├── docker-compose.yml    # api + postgres
 ├── migrations/schema.sql # 資料表（可重複執行）
+├── admin/                # 管理後台網頁（/shop/admin/）
 └── src/
     ├── index.js          # 進入點（啟動時自動 migrate）
     ├── app.js            # 路由、安全性設定
@@ -51,7 +52,7 @@ server/
 | GET | `/shop/api/health` | 健康檢查（含資料庫狀態） |
 | POST | `/shop/api/orders` | 建立訂單 |
 | GET | `/shop/api/orders/:orderNo?phone=09xxxxxxxx` | 顧客查詢自己的訂單（需手機號碼相符） |
-| GET | `/shop/api/admin/orders?status=&limit=&offset=` | 管理：列出訂單 |
+| GET | `/shop/api/admin/orders?status=&q=&limit=&offset=` | 管理：列出訂單（`q` 搜尋訂單編號或手機；回傳 `counts` 各狀態筆數） |
 | GET | `/shop/api/admin/orders/:orderNo` | 管理：單筆訂單完整資料 |
 | PATCH | `/shop/api/admin/orders/:orderNo` | 管理：更新狀態／寄件編號／備註 |
 
@@ -66,13 +67,25 @@ curl -X POST https://你的網域/shop/api/orders \
        "items":[{"id":"ring","qty":1},{"id":"necklace","qty":2}]}'
 ```
 
-驗證規則：姓名 1–50 字、手機 `09` 開頭 10 碼（可含 `-`、空白、`+886`）、Email、門市名稱 1–50 字、門市店號 6 位數字、備註 ≤500 字、商品 id 需存在、每項數量 1–20 的整數。Body 上限 16 KB。`Idempotency-Key`（選填）可避免重複送出產生兩筆訂單，前端已自動帶入。
+驗證規則：姓名 1–50 字、手機 `09` 開頭 10 碼（可含 `-`、空白、`+886`）、Email、門市名稱 1–50 字、門市店號 6 位數字、備註 ≤500 字、商品 id 需存在、每項數量 1–10 的整數（與前端購物車上限一致）。Body 上限 16 KB。`Idempotency-Key`（選填）可避免重複送出產生兩筆訂單，前端已自動帶入。
 
 成功回傳 `201`：訂單編號（`GB-YYYYMMDD-XXXX`，台北日期）、明細、小計、運費、總額與匯款說明 `payment`。錯誤回傳 `400`（含各欄位 `fields` 錯誤訊息）、`413`、`429`。
 
 ### 訂單狀態
 
 `pending_payment`（待付款）→ `paid`（已付款）→ `shipped`（已出貨）→ `completed`（已完成）；或 `cancelled`（已取消）。更新狀態時會自動記錄 `paid_at`、`shipped_at` 等時間。
+
+## 管理後台網頁
+
+網址：`https://你的網域/shop/admin/`（由 Node 提供，與 `SERVE_STATIC` 無關）。
+
+- 以 `ADMIN_TOKEN` 登入；金鑰只存在瀏覽器分頁的 sessionStorage，關閉分頁或按「登出」即清除。
+- 狀態分頁籤（全部／待付款／已付款／已出貨／已完成／已取消，含筆數）、以訂單編號或手機搜尋、分頁。
+- 訂單詳細：買家、7-ELEVEN 門市名稱與店號、商品、金額、顧客備註、各階段時間。
+- 可更新狀態、交貨便寄件編號、管理備註（僅後台可見）。
+- 「複製寄件資料」：一鍵複製取件人、手機、門市、店號、商品價值、訂單編號，方便貼到交貨便。
+- 頁面加上 `noindex` 與 `X-Robots-Tag`、`Cache-Control: no-store`，不使用 inline script（符合 CSP）；手機可用。
+- 建議另外在 nginx 對 `/shop/admin/` 加上 IP 白名單或 Basic Auth，多一層保護。
 
 ### 管理 API 範例
 
@@ -174,6 +187,14 @@ location /shop/ {
        client_max_body_size 32k;
    }
 
+   location /shop/admin/ {
+       proxy_pass http://127.0.0.1:3000;      # 管理後台網頁由 Node 提供
+       proxy_set_header Host              $host;
+       proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+       proxy_set_header X-Forwarded-Proto $scheme;
+   }
+   location = /shop/admin { return 301 /shop/admin/; }
+
    location /shop/ {
        alias /var/www/glimmer-shop/;
        index index.html;
@@ -189,7 +210,8 @@ cd server
 npm install
 cp .env.example .env   # DATABASE_URL 指向本機 PostgreSQL，SERVE_STATIC=true
 npm start
-# 開 http://localhost:3000/shop/
+# 前台 http://localhost:3000/shop/
+# 後台 http://localhost:3000/shop/admin/
 ```
 
 ## 備份

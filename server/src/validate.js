@@ -1,7 +1,7 @@
 "use strict";
 const { PRODUCTS } = require("./products");
 
-const MAX_QTY = 20;
+const MAX_QTY = 10; // 需與前端 js/app.js 的 MAX_QTY 一致
 const MAX_LINES = 10;
 const PHONE_RE = /^09\d{8}$/;
 const STORE_ID_RE = /^\d{6}$/;

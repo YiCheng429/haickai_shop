@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="zh-Hant-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex, nofollow, noarchive">
+  <meta name="referrer" content="no-referrer">
+  <title>訂單管理｜微光盲盒 Glimmer Box</title>
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="admin.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="wrap topbar-inner">
+      <div class="brand">
+        <strong>微光盲盒</strong>
+        <span>訂單管理</span>
+      </div>
+      <button type="button" class="btn btn-ghost btn-sm" id="logout-btn" hidden>登出</button>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <!-- 登入 -->
+    <section class="login-card panel" id="login-view">
+      <h1>管理員登入</h1>
+      <p class="muted">請輸入管理金鑰（ADMIN_TOKEN）。金鑰只會保存在此分頁，關閉分頁即登出。</p>
+      <form id="login-form" class="stack" novalidate>
+        <label>管理金鑰
+          <input id="token-input" type="password" autocomplete="current-password" required>
+        </label>
+        <button type="submit" class="btn btn-ink" id="login-btn">登入</button>
+        <p class="form-error" id="login-error" role="alert" hidden></p>
+      </form>
+    </section>
+
+    <!-- 後台 -->
+    <section id="app-view" hidden>
+      <div class="toolbar">
+        <nav class="tabs" id="status-tabs" aria-label="訂單狀態">
+          <button type="button" class="tab is-active" data-status="">全部 <span class="count" data-count="all">0</span></button>
+          <button type="button" class="tab" data-status="pending_payment">待付款 <span class="count" data-count="pending_payment">0</span></button>
+          <button type="button" class="tab" data-status="paid">已付款 <span class="count" data-count="paid">0</span></button>
+          <button type="button" class="tab" data-status="shipped">已出貨 <span class="count" data-count="shipped">0</span></button>
+          <button type="button" class="tab" data-status="completed">已完成 <span class="count" data-count="completed">0</span></button>
+          <button type="button" class="tab" data-status="cancelled">已取消 <span class="count" data-count="cancelled">0</span></button>
+        </nav>
+        <form class="search" id="search-form" role="search">
+          <input id="search-input" type="search" placeholder="搜尋訂單編號或手機號碼" maxlength="40" aria-label="搜尋訂單編號或手機號碼">
+          <button type="submit" class="btn btn-ghost btn-sm">搜尋</button>
+          <button type="button" class="btn btn-ghost btn-sm" id="refresh-btn" title="重新整理">重新整理</button>
+        </form>
+      </div>
+
+      <div class="layout">
+        <div class="list-col">
+          <p class="muted list-meta" id="list-meta"></p>
+          <ul class="order-list" id="order-list"></ul>
+          <div class="pager">
+            <button type="button" class="btn btn-ghost btn-sm" id="prev-page" disabled>上一頁</button>
+            <span class="muted" id="page-info"></span>
+            <button type="button" class="btn btn-ghost btn-sm" id="next-page" disabled>下一頁</button>
+          </div>
+        </div>
+
+        <div class="detail-col">
+          <div class="panel detail-empty" id="detail-empty">
+            <p class="muted">從左側選擇一筆訂單查看詳細資料。</p>
+          </div>
+          <article class="panel detail" id="detail" hidden>
+            <button type="button" class="back-link" id="back-btn">← 返回列表</button>
+            <header class="detail-head">
+              <h2 class="mono" id="d-order-no"></h2>
+              <span class="badge" id="d-status"></span>
+            </header>
+
+            <div class="detail-grid">
+              <section>
+                <h3>買家</h3>
+                <dl class="kv">
+                  <dt>姓名</dt><dd id="d-name"></dd>
+                  <dt>手機</dt><dd id="d-phone" class="mono"></dd>
+                  <dt>Email</dt><dd id="d-email"></dd>
+                </dl>
+              </section>
+              <section>
+                <h3>7-ELEVEN 取貨門市</h3>
+                <dl class="kv">
+                  <dt>門市</dt><dd id="d-store-name"></dd>
+                  <dt>店號</dt><dd id="d-store-id" class="mono"></dd>
+                </dl>
+                <button type="button" class="btn btn-gold btn-sm" id="copy-ship-btn">複製寄件資料</button>
+              </section>
+            </div>
+
+            <section>
+              <h3>商品</h3>
+              <ul class="items" id="d-items"></ul>
+              <dl class="kv totals">
+                <dt>商品小計</dt><dd id="d-subtotal"></dd>
+                <dt>運費</dt><dd id="d-shipping"></dd>
+                <dt>合計</dt><dd id="d-total" class="strong"></dd>
+              </dl>
+            </section>
+
+            <section>
+              <h3>顧客備註</h3>
+              <p class="note-box" id="d-note"></p>
+            </section>
+
+            <section>
+              <h3>時間紀錄</h3>
+              <dl class="kv" id="d-times"></dl>
+            </section>
+
+            <section>
+              <h3>更新訂單</h3>
+              <form id="update-form" class="stack" novalidate>
+                <div class="row2">
+                  <label>狀態
+                    <select id="u-status">
+                      <option value="pending_payment">待付款</option>
+                      <option value="paid">已付款</option>
+                      <option value="shipped">已出貨</option>
+                      <option value="completed">已完成</option>
+                      <option value="cancelled">已取消</option>
+                    </select>
+                  </label>
+                  <label>交貨便寄件編號
+                    <input id="u-tracking" type="text" maxlength="40" autocomplete="off" spellcheck="false" placeholder="例如 F12345678901">
+                  </label>
+                </div>
+                <label>管理備註（僅後台可見）
+                  <textarea id="u-note" maxlength="1000" rows="3"></textarea>
+                </label>
+                <div class="actions">
+                  <button type="submit" class="btn btn-ink" id="save-btn">儲存變更</button>
+                </div>
+              </form>
+            </section>
+          </article>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+  <script src="admin.js"></script>
+</body>
+</html>

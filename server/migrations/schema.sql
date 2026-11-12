@@ -42,7 +42,7 @@ CREATE TABLE IF NOT EXISTS order_items (
   product_id    VARCHAR(32) NOT NULL,
   product_name  VARCHAR(100) NOT NULL,
   unit_price    INTEGER     NOT NULL CHECK (unit_price >= 0),
-  qty           INTEGER     NOT NULL CHECK (qty BETWEEN 1 AND 20),
+  qty           INTEGER     NOT NULL CHECK (qty BETWEEN 1 AND 20),  -- 應用層上限為 10
   line_total    INTEGER     NOT NULL CHECK (line_total >= 0)
 );
 

@@ -1,6 +1,8 @@
 /* 微光盲盒 Glimmer Box
    簡約精緻：ivory, champagne gold, charcoal */
 
+[hidden] { display: none !important; }
+
 :root {
   --bg: #f7f4ee;
   --paper: #fbf9f5;

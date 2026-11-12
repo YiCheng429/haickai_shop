@@ -143,7 +143,8 @@ function buildApiRouter() {
     }
     const limit = Math.min(200, Math.max(1, Number.parseInt(req.query.limit, 10) || 50));
     const offset = Math.max(0, Number.parseInt(req.query.offset, 10) || 0);
-    const result = await orders.listOrders({ status, limit, offset });
+    const q = req.query.q ? String(req.query.q).trim().slice(0, 40) : "";
+    const result = await orders.listOrders({ status, q: q || undefined, limit, offset });
     res.json({ ok: true, limit, offset, ...result });
   }));
 
@@ -225,6 +226,28 @@ function createApp() {
   const mounts = new Set(["/api"]);
   if (config.basePath) mounts.add(config.basePath + "/api");
   for (const m of mounts) app.use(m, api);
+
+  // 管理後台（靜態頁；資料一律經由需 ADMIN_TOKEN 的 API 取得）
+  const adminDir = path.resolve(__dirname, "..", "admin");
+  const adminStatic = express.static(adminDir, { index: "index.html", dotfiles: "ignore", maxAge: 0 });
+  const adminHeaders = (req, res, next) => {
+    res.set("X-Robots-Tag", "noindex, nofollow");
+    res.set("Cache-Control", "no-store");
+    res.set("Referrer-Policy", "no-referrer");
+    next();
+  };
+  const adminMounts = new Set(["/admin"]);
+  if (config.basePath) adminMounts.add(config.basePath + "/admin");
+  for (const m of adminMounts) {
+    app.use((req, res, next) => {
+      if (req.method === "GET" && req.path === m) {
+        const i = req.originalUrl.indexOf("?");
+        return res.redirect(301, m + "/" + (i >= 0 ? req.originalUrl.slice(i) : ""));
+      }
+      next();
+    });
+    app.use(m, adminHeaders, adminStatic);
+  }
 
   if (config.serveStatic) {
     const dir = path.resolve(__dirname, "..", config.staticDir);

@@ -10,6 +10,7 @@ RUN npm ci --omit=dev && npm cache clean --force
 
 COPY server/src ./src
 COPY server/migrations ./migrations
+COPY server/admin ./admin
 # 前端靜態檔（SERVE_STATIC=true 時由 Node 提供）
 COPY index.html .nojekyll /app/public/
 COPY css /app/public/css

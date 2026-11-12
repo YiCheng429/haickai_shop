@@ -43,7 +43,7 @@ const CONFIG = {
 };
 
 const STORAGE_KEY = "glimmer-box-cart-v2";
-const MAX_QTY = 10;
+const MAX_QTY = 10; // 需與 server/src/validate.js 的 MAX_QTY 一致
 
 const state = {
   cart: loadCart(),
@@ -108,6 +108,12 @@ function setText(selector, text) {
 function resetPendingOrder() {
   state.orderNo = "";
   state.idempotencyKey = "";
+}
+
+/* 線上下單成功後隱藏「複製訂單內容」（訂單已存在伺服器，無需再寄信）；購物車有變動時再顯示 */
+function setCopyOrderVisible(visible) {
+  const btn = document.getElementById("copy-order");
+  if (btn) btn.hidden = !visible;
 }
 
 function escapeHtml(value) {
@@ -235,6 +241,7 @@ function renderProducts() {
 }
 
 function addToCart(id, qty) {
+  setCopyOrderVisible(true);
   const existing = state.cart.find((i) => i.id === id);
   if (existing) existing.qty = Math.min(MAX_QTY, existing.qty + qty);
   else state.cart.push({ id, qty: Math.min(MAX_QTY, qty) });
@@ -244,6 +251,7 @@ function addToCart(id, qty) {
 }
 
 function setCartQty(id, qty) {
+  setCopyOrderVisible(true);
   if (qty <= 0) state.cart = state.cart.filter((i) => i.id !== id);
   else {
     const item = state.cart.find((i) => i.id === id);
@@ -473,6 +481,7 @@ function showServerConfirmation(order, payment) {
         <dt>戶名</dt><dd>${escapeHtml(payment.accountName)}</dd>
       </dl>`;
   }
+  setCopyOrderVisible(false);
   if (title) title.textContent = "訂單已成立";
   if (body) {
     body.innerHTML = `

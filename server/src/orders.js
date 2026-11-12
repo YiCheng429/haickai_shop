@@ -145,21 +145,44 @@ async function getOrder(orderNo) {
   return rowToOrder(rows[0], items.get(String(rows[0].id)));
 }
 
-async function listOrders({ status, limit = 50, offset = 0 }) {
+async function listOrders({ status, q, limit = 50, offset = 0 }) {
   const params = [];
-  let where = "";
+  const conds = [];
+  let searchCond = "";
+  if (q) {
+    const term = String(q).trim().toUpperCase();
+    const digits = term.replace(/[^0-9]/g, "");
+    params.push("%" + term.replace(/[%_\\]/g, "\\$&") + "%");
+    const parts = [`order_no ILIKE $${params.length}`];
+    if (digits.length >= 3) {
+      params.push("%" + digits + "%");
+      parts.push(`phone LIKE $${params.length}`);
+    }
+    searchCond = "(" + parts.join(" OR ") + ")";
+    conds.push(searchCond);
+  }
+  // 各狀態筆數（套用搜尋條件、不套用狀態篩選），供後台分頁籤顯示
+  const countsRes = await pool.query(
+    `SELECT status, count(*)::int AS n FROM orders ${conds.length ? "WHERE " + conds.join(" AND ") : ""} GROUP BY status`,
+    params
+  );
+  const counts = Object.fromEntries(STATUSES.map((s) => [s, 0]));
+  for (const r of countsRes.rows) counts[r.status] = r.n;
+  counts.all = Object.values(counts).reduce((a, b) => a + b, 0);
+
   if (status) {
     params.push(status);
-    where = "WHERE status = $1";
+    conds.push(`status = $${params.length}`);
   }
-  const countRes = await pool.query(`SELECT count(*)::int AS n FROM orders ${where}`, params);
+  const where = conds.length ? "WHERE " + conds.join(" AND ") : "";
+  const total = status ? counts[status] : counts.all;
   params.push(limit, offset);
   const { rows } = await pool.query(
     `SELECT * FROM orders ${where} ORDER BY created_at DESC, id DESC LIMIT $${params.length - 1} OFFSET $${params.length}`,
     params
   );
   const items = await loadItems(pool, rows.map((r) => r.id));
-  return { total: countRes.rows[0].n, orders: rows.map((r) => rowToOrder(r, items.get(String(r.id)))) };
+  return { total, counts, orders: rows.map((r) => rowToOrder(r, items.get(String(r.id)))) };
 }
 
 async function updateOrder(orderNo, { status, trackingNo, adminNote }) {

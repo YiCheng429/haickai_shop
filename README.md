@@ -1,0 +1,1 @@
+# haickai_shop

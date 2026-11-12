@@ -38,7 +38,8 @@ function orderText(order, payment) {
     `付款方式：匯款／轉帳。${payment.message}`
   );
   if (payment.configured) {
-    lines.push(`銀行：${payment.bankName}（${payment.bankCode}）`, `帳號：${payment.account}`, `戶名：${payment.accountName}`);
+    lines.push(`銀行：${payment.bankName}${payment.bankCode ? `（${payment.bankCode}）` : ""}`, `帳號：${payment.account}`);
+    if (payment.accountName) lines.push(`戶名：${payment.accountName}`);
   }
   return lines.join("\n");
 }
@@ -70,4 +71,27 @@ async function notifyNewOrder(order, payment) {
   return { sent: jobs.length };
 }
 
-module.exports = { notifyNewOrder, mailEnabled: () => Boolean(transporter) };
+async function notifyPaymentReport(order) {
+  if (!transporter) return { skipped: true };
+  const when = new Date(order.paymentReportedAt).toLocaleString("zh-Hant-TW", { timeZone: "Asia/Taipei", hour12: false });
+  const text = [
+    `訂單編號：${order.orderNo}`,
+    `買家：${order.name}（${order.phone}）`,
+    `應付金額：${nt(order.total)}`,
+    `轉出帳號後五碼：${order.paymentLast5}`,
+    order.paymentReportedAmount ? `回報匯款金額：${nt(order.paymentReportedAmount)}` : "",
+    `回報時間：${when}`,
+    "",
+    "請核對入帳後，到管理後台將訂單改為「已付款」。"
+  ].filter((l, i, a) => l !== "" || a[i - 1] !== "").join("\n");
+  await transporter.sendMail({
+    from: config.smtp.from,
+    to: config.ownerEmail,
+    replyTo: order.email,
+    subject: `【匯款回報】${order.orderNo}　後五碼 ${order.paymentLast5}　${nt(order.total)}`,
+    text
+  });
+  return { sent: 1 };
+}
+
+module.exports = { notifyNewOrder, notifyPaymentReport, mailEnabled: () => Boolean(transporter) };

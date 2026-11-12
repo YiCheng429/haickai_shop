@@ -35,6 +35,7 @@ const config = {
   adminToken: process.env.ADMIN_TOKEN || "",
   orderRateLimit: int(process.env.ORDER_RATE_LIMIT, 10),
   lookupRateLimit: int(process.env.LOOKUP_RATE_LIMIT, 30),
+  reportRateLimit: int(process.env.REPORT_RATE_LIMIT, 10),
   bank: {
     name: process.env.BANK_NAME || "",
     code: process.env.BANK_CODE || "",

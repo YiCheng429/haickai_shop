@@ -49,6 +49,7 @@ const state = {
   cart: loadCart(),
   orderNo: "",
   idempotencyKey: "",
+  lastPhone: "",
   submitting: false
 };
 
@@ -364,8 +365,8 @@ function buildOrderText() {
   lines.push(`運費（${CONFIG.shippingName}）：${state.cart.length && ship === 0 ? "免運（滿 " + formatNT(CONFIG.freeShippingThreshold) + "）" : formatNT(state.cart.length ? ship : 0)}`);
   lines.push(`合計：${formatNT(sub + (state.cart.length ? ship : 0))}`);
   lines.push("");
-  lines.push("付款方式：匯款／轉帳（請等候賣家來回信提供帳戶資訊，確認收款後出貨）。");
-  lines.push("配送：7-ELEVEN 交貨便店到店。");
+  lines.push("付款方式：匯款／轉帳（請等候賣家來回信提供帳戶資訊；匯款後請回信告知轉出帳號後五碼，確認收款後出貨）。");
+  lines.push("配送：7-ELEVEN 交貨便店到店。交貨便寄件成立後，取貨通知會以 Email 與簡訊傳送給你。");
   lines.push(`若郵件未能自動開啟，請將此內容寄至 ${CONFIG.email}`);
   return lines.join("\n");
 }
@@ -458,7 +459,7 @@ function showConfirmation() {
   const body = document.getElementById("confirm-body");
   if (title) title.textContent = "訂單已準備送出";
   if (body) {
-    body.innerHTML = `<p>你的訂單編號是 <span class="order-no">${escapeHtml(state.orderNo)}</span>。請在郵件視窗中按下傳送。我們會回信提供匯款資訊；確認收款後，將以 7-ELEVEN 交貨便店到店寄至你指定的門市，約 3 至 5 個工作天出貨。若郵件沒有開啟，請將上方訂單內容寄至 ${escapeHtml(CONFIG.email)}。</p>`;
+    body.innerHTML = `<p>你的訂單編號是 <span class="order-no">${escapeHtml(state.orderNo)}</span>。請在郵件視窗中按下傳送。我們會回信提供匯款資訊，匯款後請回信告知轉出帳號後五碼；確認收款後，將以 7-ELEVEN 交貨便店到店寄至你指定的門市，約 3 至 5 個工作天出貨；交貨便寄件成立後，取貨通知會以 Email 與簡訊傳送給你。若郵件沒有開啟，請將上方訂單內容寄至 ${escapeHtml(CONFIG.email)}。</p>`;
   }
   box?.classList.remove("is-error");
   box?.classList.add("is-visible");
@@ -478,7 +479,7 @@ function showServerConfirmation(order, payment) {
       <dl>
         <dt>銀行</dt><dd>${escapeHtml(payment.bankName)}${payment.bankCode ? `（${escapeHtml(payment.bankCode)}）` : ""}</dd>
         <dt>帳號</dt><dd class="order-no">${escapeHtml(payment.account)}</dd>
-        <dt>戶名</dt><dd>${escapeHtml(payment.accountName)}</dd>
+        ${payment.accountName ? `<dt>戶名</dt><dd>${escapeHtml(payment.accountName)}</dd>` : ""}
       </dl>`;
   }
   setCopyOrderVisible(false);
@@ -494,6 +495,7 @@ function showServerConfirmation(order, payment) {
       <ul>${items}</ul>
       ${bank}
       <p>${escapeHtml(payment?.message || "")}</p>
+      ${reportFormHtml(order.orderNo, state.lastPhone, null)}
       <p>可隨時於「訂單查詢」以訂單編號與手機號碼查看進度，問題請來信 ${escapeHtml(CONFIG.email)}。</p>`;
   }
   box?.classList.remove("is-error");
@@ -557,6 +559,7 @@ async function submitOrder() {
 
   const { reachable, status, data } = result;
   if (reachable && data.ok) {
+    state.lastPhone = payload.phone;
     state.cart = [];
     saveCart();
     resetPendingOrder();
@@ -583,6 +586,70 @@ async function submitOrder() {
   // API 無法連線或伺服器錯誤：改用 Email 送出
   toast("線上下單暫時無法使用，已改為以 Email 送出訂單");
   await submitOrderByEmail();
+}
+
+/* 匯款回報（帳號後五碼） */
+function reportStatusText(o) {
+  if (o && o.paymentLast5) {
+    return `已回報轉出帳號後五碼 ${o.paymentLast5}（${formatDateTime(o.paymentReportedAt)}），我們核對後會更新訂單狀態。如需修改可重新送出。`;
+  }
+  return "匯款後請填寫轉出帳號後五碼，方便我們核對入帳。";
+}
+
+function reportFormHtml(orderNo, phone, order) {
+  return `
+    <form class="report-form" data-order-no="${escapeHtml(orderNo)}" data-phone="${escapeHtml(phone || "")}" novalidate>
+      <h5>回報匯款</h5>
+      <p class="report-status">${escapeHtml(reportStatusText(order))}</p>
+      <div class="report-row">
+        <label>轉出帳號後五碼
+          <input type="text" name="last5" inputmode="numeric" maxlength="5" autocomplete="off" placeholder="例如 12345" value="${escapeHtml(order?.paymentLast5 || "")}">
+        </label>
+        <button type="submit" class="btn btn-ink">回報匯款</button>
+      </div>
+    </form>`;
+}
+
+async function submitPaymentReport(form) {
+  const input = form.querySelector("input[name='last5']");
+  const btn = form.querySelector("button[type='submit']");
+  const statusEl = form.querySelector(".report-status");
+  const last5 = (input?.value || "").replace(/\s/g, "");
+  if (!/^\d{5}$/.test(last5)) {
+    toast("請填寫 5 位數字的轉出帳號後五碼");
+    input?.focus();
+    return;
+  }
+  const orderNo = form.dataset.orderNo;
+  const phone = form.dataset.phone;
+  if (btn) {
+    btn.disabled = true;
+    btn.textContent = "送出中…";
+  }
+  let result;
+  try {
+    result = await callApi(`orders/${encodeURIComponent(orderNo)}/payment-report`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ phone, last5 })
+    });
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.textContent = "回報匯款";
+    }
+  }
+  const { reachable, data } = result;
+  if (!reachable) {
+    toast(`線上回報暫時無法使用，請來信 ${CONFIG.email} 告知訂單編號與帳號後五碼`);
+    return;
+  }
+  if (!data.ok) {
+    toast(data.message || "回報失敗，請稍後再試");
+    return;
+  }
+  if (statusEl) statusEl.textContent = reportStatusText(data.order);
+  toast("已收到匯款回報，謝謝！");
 }
 
 /* 訂單查詢 */
@@ -652,17 +719,19 @@ async function lookupOrder(e) {
   if (o.paidAt) rows.push(["確認收款", formatDateTime(o.paidAt)]);
   if (o.shippedAt) rows.push(["出貨時間", formatDateTime(o.shippedAt)]);
   if (o.trackingNo) rows.push(["交貨便寄件編號", o.trackingNo]);
+  const shipNote = o.status === "shipped" ? `<p>交貨便寄件成立後，取貨通知會以 Email 與簡訊傳送給你。</p>` : "";
   let pay = "";
   if (o.status === "pending_payment" && o.payment) {
     pay = o.payment.configured
-      ? `<p>匯款帳戶：${escapeHtml(o.payment.bankName)}${o.payment.bankCode ? `（${escapeHtml(o.payment.bankCode)}）` : ""} ${escapeHtml(o.payment.account)}，戶名 ${escapeHtml(o.payment.accountName)}。</p><p>${escapeHtml(o.payment.message)}</p>`
+      ? `<p>匯款帳戶：${escapeHtml(o.payment.bankName)}${o.payment.bankCode ? `（${escapeHtml(o.payment.bankCode)}）` : ""} ${escapeHtml(o.payment.account)}${o.payment.accountName ? `，戶名 ${escapeHtml(o.payment.accountName)}` : ""}。</p><p>${escapeHtml(o.payment.message)}</p>`
       : `<p>${escapeHtml(o.payment.message)}</p>`;
   }
+  if (o.status === "pending_payment") pay += reportFormHtml(o.orderNo, phone, o);
   renderLookupResult(`
     <h4>${escapeHtml(o.orderNo)}<span class="status-badge${o.status === "cancelled" ? " is-cancelled" : ""}">${escapeHtml(o.statusLabel)}</span></h4>
     <dl>${rows.map(([k, v]) => `<dt>${escapeHtml(k)}</dt><dd>${escapeHtml(v)}</dd>`).join("")}</dl>
     <ul>${items}</ul>
-    ${pay}`);
+    ${pay}${shipNote}`);
 }
 
 function bindUi() {
@@ -692,6 +761,12 @@ function bindUi() {
   });
   document.getElementById("submit-order")?.addEventListener("click", submitOrder);
   document.getElementById("lookup-form")?.addEventListener("submit", lookupOrder);
+  document.addEventListener("submit", (e) => {
+    const form = e.target.closest?.(".report-form");
+    if (!form) return;
+    e.preventDefault();
+    submitPaymentReport(form);
+  });
   document.querySelectorAll("[data-scroll-cart]").forEach((el) => {
     el.addEventListener("click", (e) => {
       e.preventDefault();

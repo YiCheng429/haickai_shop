@@ -11,7 +11,7 @@ const pool = require("./db");
 const { validateOrder, normalizePhone, ORDER_NO_RE, PHONE_RE } = require("./validate");
 const orders = require("./orders");
 const { paymentInstructions } = require("./payment");
-const { notifyNewOrder, mailEnabled } = require("./mailer");
+const { notifyNewOrder, notifyPaymentReport, mailEnabled } = require("./mailer");
 const { FREE_SHIPPING_THRESHOLD, SHIPPING_NAME } = require("./products");
 
 const asyncH = (fn) => (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next);
@@ -38,7 +38,10 @@ function publicOrder(o) {
     trackingNo: o.trackingNo,
     createdAt: o.createdAt,
     paidAt: o.paidAt,
-    shippedAt: o.shippedAt
+    shippedAt: o.shippedAt,
+    paymentLast5: o.paymentLast5,
+    paymentReportedAt: o.paymentReportedAt,
+    paymentReportedAmount: o.paymentReportedAmount
   };
 }
 
@@ -132,14 +135,42 @@ function buildApiRouter() {
     res.json({ ok: true, order: out });
   }));
 
+  r.post("/orders/:orderNo/payment-report", limiter(config.reportRateLimit, "回報次數過多，請稍後再試"), asyncH(async (req, res) => {
+    const body = req.body || {};
+    const orderNo = String(req.params.orderNo || "").trim().toUpperCase();
+    const phone = normalizePhone(typeof body.phone === "string" ? body.phone : "");
+    const last5 = typeof body.last5 === "string" || typeof body.last5 === "number" ? String(body.last5).trim() : "";
+    const fields = {};
+    if (!ORDER_NO_RE.test(orderNo)) fields.orderNo = "訂單編號格式不正確";
+    if (!PHONE_RE.test(phone)) fields.phone = "請填寫下單時的 09 開頭手機號碼";
+    if (!/^\d{5}$/.test(last5)) fields.last5 = "請填寫轉出帳號後五碼（5 位數字）";
+    let amount = null;
+    if (body.amount !== undefined && body.amount !== null && body.amount !== "") {
+      amount = Number(body.amount);
+      if (!Number.isInteger(amount) || amount < 1 || amount > 1000000) fields.amount = "匯款金額需為正整數";
+    }
+    if (Object.keys(fields).length) return res.status(400).json({ ok: false, error: "validation_error", message: Object.values(fields)[0], fields });
+
+    const result = await orders.reportPayment(orderNo, phone, { last5, amount });
+    if (result.error === "not_found") {
+      return res.status(404).json({ ok: false, error: "not_found", message: "查無此訂單，請確認訂單編號與手機號碼" });
+    }
+    if (result.error === "not_pending") {
+      return res.status(409).json({ ok: false, error: "not_pending", message: `此訂單目前狀態為「${result.order.statusLabel}」，無需回報匯款` });
+    }
+    const order = result.order;
+    notifyPaymentReport(order).catch((err) => console.error(`[mail] ${order.orderNo} 匯款回報通知失敗：`, err.message));
+    res.json({ ok: true, message: "已收到你的匯款回報，我們核對後會更新訂單狀態。", order: publicOrder(order) });
+  }));
+
   // ---- 管理 API ----
   const admin = express.Router();
   admin.use(requireAdmin);
 
   admin.get("/orders", asyncH(async (req, res) => {
     const status = req.query.status ? String(req.query.status) : undefined;
-    if (status && !orders.STATUSES.includes(status)) {
-      return res.status(400).json({ ok: false, error: "validation_error", message: `status 需為 ${orders.STATUSES.join(", ")}` });
+    if (status && status !== "reported" && !orders.STATUSES.includes(status)) {
+      return res.status(400).json({ ok: false, error: "validation_error", message: `status 需為 ${orders.STATUSES.join(", ")} 或 reported` });
     }
     const limit = Math.min(200, Math.max(1, Number.parseInt(req.query.limit, 10) || 50));
     const offset = Math.max(0, Number.parseInt(req.query.offset, 10) || 0);

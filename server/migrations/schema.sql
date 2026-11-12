@@ -47,3 +47,18 @@ CREATE TABLE IF NOT EXISTS order_items (
 );
 
 CREATE INDEX IF NOT EXISTS idx_order_items_order ON order_items (order_id);
+
+-- 匯款回報（買家回報轉出帳號後五碼，供對帳）
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS payment_last5 CHAR(5);
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS payment_reported_at TIMESTAMPTZ;
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS payment_reported_amount INTEGER;
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'orders_payment_last5_chk') THEN
+    ALTER TABLE orders ADD CONSTRAINT orders_payment_last5_chk CHECK (payment_last5 IS NULL OR payment_last5 ~ '^[0-9]{5}$');
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'orders_payment_amount_chk') THEN
+    ALTER TABLE orders ADD CONSTRAINT orders_payment_amount_chk CHECK (payment_reported_amount IS NULL OR payment_reported_amount BETWEEN 1 AND 1000000);
+  END IF;
+END$$;
+CREATE INDEX IF NOT EXISTS idx_orders_reported ON orders (payment_reported_at DESC) WHERE status = 'pending_payment' AND payment_last5 IS NOT NULL;

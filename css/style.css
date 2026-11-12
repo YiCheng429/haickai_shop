@@ -596,3 +596,16 @@ textarea { min-height: 4.5rem; resize: vertical; }
 .status-badge.is-cancelled { border-color: var(--line-strong); color: var(--muted); }
 .btn[disabled] { opacity: 0.55; cursor: progress; }
 .lookup-result ul + p, .confirm ul + p { margin-top: 0.6rem; }
+
+/* 匯款回報 */
+.report-form {
+  margin-top: 1rem;
+  padding-top: 0.9rem;
+  border-top: 1px dashed var(--line-strong);
+}
+.report-form h5 { font-family: var(--font-serif); font-weight: 500; font-size: 0.98rem; margin: 0 0 0.3rem; color: var(--ink); }
+.report-form .report-status { font-size: 0.86rem; color: var(--muted); margin-bottom: 0.6rem; }
+.report-row { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 0.7rem; }
+.report-row label { flex: 1 1 10rem; }
+.report-row input { font-family: ui-monospace, Menlo, Consolas, monospace; letter-spacing: 0.2em; }
+.report-form + p { margin-top: 0.8rem; }

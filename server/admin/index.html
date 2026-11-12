@@ -40,6 +40,7 @@
         <nav class="tabs" id="status-tabs" aria-label="訂單狀態">
           <button type="button" class="tab is-active" data-status="">全部 <span class="count" data-count="all">0</span></button>
           <button type="button" class="tab" data-status="pending_payment">待付款 <span class="count" data-count="pending_payment">0</span></button>
+          <button type="button" class="tab tab-reported" data-status="reported">已回報待核對 <span class="count" data-count="reported">0</span></button>
           <button type="button" class="tab" data-status="paid">已付款 <span class="count" data-count="paid">0</span></button>
           <button type="button" class="tab" data-status="shipped">已出貨 <span class="count" data-count="shipped">0</span></button>
           <button type="button" class="tab" data-status="completed">已完成 <span class="count" data-count="completed">0</span></button>
@@ -101,6 +102,11 @@
                 <dt>運費</dt><dd id="d-shipping"></dd>
                 <dt>合計</dt><dd id="d-total" class="strong"></dd>
               </dl>
+            </section>
+
+            <section>
+              <h3>匯款回報</h3>
+              <dl class="kv" id="d-payment"></dl>
             </section>
 
             <section>

@@ -48,6 +48,10 @@ function rowToOrder(row, items) {
     shippedAt: row.shipped_at,
     completedAt: row.completed_at,
     cancelledAt: row.cancelled_at,
+    paymentLast5: row.payment_last5,
+    paymentReportedAt: row.payment_reported_at,
+    paymentReportedAmount: row.payment_reported_amount,
+    paymentReported: Boolean(row.payment_last5),
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     items: (items || []).map((i) => ({
@@ -169,16 +173,25 @@ async function listOrders({ status, q, limit = 50, offset = 0 }) {
   const counts = Object.fromEntries(STATUSES.map((s) => [s, 0]));
   for (const r of countsRes.rows) counts[r.status] = r.n;
   counts.all = Object.values(counts).reduce((a, b) => a + b, 0);
+  const repRes = await pool.query(
+    `SELECT count(*)::int AS n FROM orders WHERE ${[...conds, "status = 'pending_payment'", "payment_last5 IS NOT NULL"].join(" AND ")}`,
+    params
+  );
+  counts.reported = repRes.rows[0].n;
 
-  if (status) {
+  if (status === "reported") {
+    conds.push("status = 'pending_payment'", "payment_last5 IS NOT NULL");
+  } else if (status) {
     params.push(status);
     conds.push(`status = $${params.length}`);
   }
   const where = conds.length ? "WHERE " + conds.join(" AND ") : "";
   const total = status ? counts[status] : counts.all;
+  // 已回報待核對：依回報時間排序，最新回報在前
+  const order = status === "reported" ? "payment_reported_at DESC, id DESC" : "created_at DESC, id DESC";
   params.push(limit, offset);
   const { rows } = await pool.query(
-    `SELECT * FROM orders ${where} ORDER BY created_at DESC, id DESC LIMIT $${params.length - 1} OFFSET $${params.length}`,
+    `SELECT * FROM orders ${where} ORDER BY ${order} LIMIT $${params.length - 1} OFFSET $${params.length}`,
     params
   );
   const items = await loadItems(pool, rows.map((r) => r.id));
@@ -210,7 +223,27 @@ async function updateOrder(orderNo, { status, trackingNo, adminNote }) {
   return rowToOrder(rows[0], items.get(String(rows[0].id)));
 }
 
+/* 買家回報匯款帳號後五碼。可重複回報（覆寫）；僅限待付款訂單。
+   回傳 { order } 或 { error: "not_found" | "not_pending", order? } */
+async function reportPayment(orderNo, phone, { last5, amount = null }) {
+  const { rows } = await pool.query(
+    `UPDATE orders
+        SET payment_last5 = $3, payment_reported_amount = $4, payment_reported_at = now(), updated_at = now()
+      WHERE order_no = $1 AND phone = $2 AND status = 'pending_payment'
+      RETURNING *`,
+    [orderNo, phone, last5, amount]
+  );
+  if (rows.length) {
+    const items = await loadItems(pool, [rows[0].id]);
+    return { order: rowToOrder(rows[0], items.get(String(rows[0].id))) };
+  }
+  const existing = await lookupOrder(orderNo, phone);
+  if (!existing) return { error: "not_found" };
+  return { error: "not_pending", order: existing };
+}
+
 module.exports = {
+  reportPayment,
   STATUSES, STATUS_LABELS, generateOrderNo, taipeiDateStamp,
   createOrder, lookupOrder, getOrder, listOrders, updateOrder
 };

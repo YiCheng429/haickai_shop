@@ -52,7 +52,8 @@ server/
 | GET | `/shop/api/health` | 健康檢查（含資料庫狀態） |
 | POST | `/shop/api/orders` | 建立訂單 |
 | GET | `/shop/api/orders/:orderNo?phone=09xxxxxxxx` | 顧客查詢自己的訂單（需手機號碼相符） |
-| GET | `/shop/api/admin/orders?status=&q=&limit=&offset=` | 管理：列出訂單（`q` 搜尋訂單編號或手機；回傳 `counts` 各狀態筆數） |
+| POST | `/shop/api/orders/:orderNo/payment-report` | 顧客回報匯款帳號後五碼 `{phone, last5, amount?}` |
+| GET | `/shop/api/admin/orders?status=&q=&limit=&offset=` | 管理：列出訂單（`status` 可為各狀態或 `reported`＝已回報待核對；`q` 搜尋訂單編號或手機；回傳 `counts` 各狀態筆數與 `reported`） |
 | GET | `/shop/api/admin/orders/:orderNo` | 管理：單筆訂單完整資料 |
 | PATCH | `/shop/api/admin/orders/:orderNo` | 管理：更新狀態／寄件編號／備註 |
 
@@ -71,6 +72,22 @@ curl -X POST https://你的網域/shop/api/orders \
 
 成功回傳 `201`：訂單編號（`GB-YYYYMMDD-XXXX`，台北日期）、明細、小計、運費、總額與匯款說明 `payment`。錯誤回傳 `400`（含各欄位 `fields` 錯誤訊息）、`413`、`429`。
 
+### 匯款回報（對帳用）
+
+買家匯款後，在下單完成畫面或「訂單查詢」填寫轉出帳號後五碼：
+
+```bash
+curl -X POST https://你的網域/shop/api/orders/GB-20261112-ABCD/payment-report \
+  -H 'Content-Type: application/json' -d '{"phone":"0912345678","last5":"12345"}'
+```
+
+- 手機號碼需與訂單相符（否則 404）；僅限「待付款」訂單（否則 409）；可重複回報，以最後一次為準。
+- `last5` 必須是 5 位數字；`amount`（匯款金額）選填。
+- 每個 IP 每 15 分鐘最多 `REPORT_RATE_LIMIT` 次（預設 10）。
+- 資料存在 `orders.payment_last5`、`payment_reported_at`、`payment_reported_amount`（migration 以 `ADD COLUMN IF NOT EXISTS` 加入，舊資料庫重啟即自動升級）。
+- 有設定 SMTP 時，會寄「【匯款回報】」通知信給店主。
+- 後台「已回報待核對」分頁會列出已回報、尚未標記已付款的訂單；核對入帳後改為「已付款」即會移出。
+
 ### 訂單狀態
 
 `pending_payment`（待付款）→ `paid`（已付款）→ `shipped`（已出貨）→ `completed`（已完成）；或 `cancelled`（已取消）。更新狀態時會自動記錄 `paid_at`、`shipped_at` 等時間。
@@ -80,7 +97,7 @@ curl -X POST https://你的網域/shop/api/orders \
 網址：`https://你的網域/shop/admin/`（由 Node 提供，與 `SERVE_STATIC` 無關）。
 
 - 以 `ADMIN_TOKEN` 登入；金鑰只存在瀏覽器分頁的 sessionStorage，關閉分頁或按「登出」即清除。
-- 狀態分頁籤（全部／待付款／已付款／已出貨／已完成／已取消，含筆數）、以訂單編號或手機搜尋、分頁。
+- 狀態分頁籤（全部／待付款／已回報待核對／已付款／已出貨／已完成／已取消，含筆數）；已回報的待付款訂單在列表顯示「已回報 12345」標籤，詳細頁有「匯款回報」區塊（後五碼、金額、時間）、以訂單編號或手機搜尋、分頁。
 - 訂單詳細：買家、7-ELEVEN 門市名稱與店號、商品、金額、顧客備註、各階段時間。
 - 可更新狀態、交貨便寄件編號、管理備註（僅後台可見）。
 - 「複製寄件資料」：一鍵複製取件人、手機、門市、店號、商品價值、訂單編號，方便貼到交貨便。
@@ -104,7 +121,7 @@ curl -X PATCH -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/js
 ## 安全性
 
 - `helmet`（含 CSP、HSTS 等標頭）、`express.json` 16 KB 上限
-- 每個 IP 每 15 分鐘：建立訂單 `ORDER_RATE_LIMIT` 次（預設 10）、查詢 `LOOKUP_RATE_LIMIT` 次（預設 30）
+- 每個 IP 每 15 分鐘：建立訂單 `ORDER_RATE_LIMIT` 次（預設 10）、查詢 `LOOKUP_RATE_LIMIT` 次（預設 30）、匯款回報 `REPORT_RATE_LIMIT` 次（預設 10）
 - CORS 預設只允許同網域；需要跨網域時設定 `CORS_ORIGINS`
 - 管理 API 使用 `ADMIN_TOKEN` Bearer（比對採固定時間比較）；未設定或少於 16 字元時管理 API 停用
 - 顧客查詢只回傳遮罩後的姓名，不回傳 Email、IP、管理備註
@@ -122,7 +139,9 @@ curl -X PATCH -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/js
 | `BASE_PATH` | 預設 `/shop` |
 | `TRUST_PROXY` | 在 nginx 後方設 `1`；前面再加一層 Cloudflare 時設 `2` |
 
-建議設定：`BANK_NAME`、`BANK_CODE`、`BANK_ACCOUNT`、`BANK_ACCOUNT_NAME`（未設定時，下單畫面會顯示「匯款資訊將以 Email 寄給你」）。
+匯款帳戶：`BANK_NAME=國泰世華`、`BANK_CODE=013`、`BANK_ACCOUNT=127506292433`（已填入 `.env.example`）。`BANK_ACCOUNT_NAME`（戶名）選填，未填時下單畫面、訂單查詢與通知信都不顯示戶名那一行；`BANK_ACCOUNT` 未設定時，下單畫面改顯示「匯款資訊將以 Email 寄給你」。
+
+出貨說明：下單成功畫面、訂單查詢與通知信都會提醒「交貨便寄件成立後，取貨通知會以 Email 與簡訊傳送給你」（文字在 `src/payment.js` 的 `SHIPPING_NOTICE`）。
 
 Email 通知（選用）：`SMTP_HOST`、`SMTP_PORT`、`SMTP_SECURE`、`SMTP_USER`、`SMTP_PASS`、`SMTP_FROM`、`OWNER_EMAIL`（預設 haickaiservice@gmail.com）、`SEND_CUSTOMER_EMAIL`。未設定 `SMTP_HOST` 時略過寄信；寄信失敗只會記錄在 log，不影響下單。使用 Gmail 時：`SMTP_HOST=smtp.gmail.com`、`SMTP_PORT=465`、`SMTP_SECURE=true`，密碼請用 Google 帳戶的「應用程式密碼」。
 

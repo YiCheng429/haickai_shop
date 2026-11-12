@@ -8,7 +8,8 @@
     paid: "已付款",
     shipped: "已出貨",
     completed: "已完成",
-    cancelled: "已取消"
+    cancelled: "已取消",
+    reported: "已回報待核對"
   };
   // 後台頁位於 {BASE_PATH}/admin/，API 位於 {BASE_PATH}/api/
   const API_BASE = new URL("../api/", document.baseURI);
@@ -171,7 +172,7 @@
         el("span", { class: "no" }, o.orderNo),
         el("span", { class: "amt" }, nt(o.total)),
         el("span", { class: "sub" }, `${o.name}・${o.phone}`),
-        el("span", { class: "sub right" }, el("span", { class: "badge s-" + o.status }, STATUS_LABELS[o.status])),
+        el("span", { class: "sub right" }, statusBadges(o)),
         el("span", { class: "sub" }, dt(o.createdAt)),
         el("span", { class: "sub right" }, o.items.map((i) => `${i.name}×${i.qty}`).join("、"))
       );
@@ -183,6 +184,17 @@
     $("page-info").textContent = `第 ${page} / ${pages} 頁`;
     $("prev-page").disabled = state.offset === 0;
     $("next-page").disabled = state.offset + PAGE_SIZE >= state.total;
+  }
+
+  function isAwaitingCheck(o) {
+    return o.status === "pending_payment" && !!o.paymentLast5;
+  }
+
+  function statusBadges(o) {
+    const wrap = el("span", { class: "badges" });
+    if (isAwaitingCheck(o)) wrap.append(el("span", { class: "badge s-reported" }, `已回報 ${o.paymentLast5}`));
+    else wrap.append(el("span", { class: "badge s-" + o.status }, STATUS_LABELS[o.status]));
+    return wrap;
   }
 
   /* ---------- 詳細 ---------- */
@@ -205,8 +217,19 @@
 
     $("d-order-no").textContent = o.orderNo;
     const badge = $("d-status");
-    badge.className = "badge s-" + o.status;
-    badge.textContent = STATUS_LABELS[o.status];
+    badge.className = "badge s-" + (isAwaitingCheck(o) ? "reported" : o.status);
+    badge.textContent = isAwaitingCheck(o) ? "待付款・已回報待核對" : STATUS_LABELS[o.status];
+    const pay = o.paymentLast5
+      ? [
+          ["後五碼", o.paymentLast5],
+          ["回報金額", o.paymentReportedAmount ? nt(o.paymentReportedAmount) : "（未填）"],
+          ["回報時間", dt(o.paymentReportedAt)],
+          ["應付金額", nt(o.total)]
+        ]
+      : [["狀態", "買家尚未回報"]];
+    $("d-payment").replaceChildren(
+      ...pay.flatMap(([k, v]) => [el("dt", {}, k), el("dd", { class: k === "後五碼" ? "mono strong" : "" }, v)])
+    );
     $("d-name").textContent = o.name;
     $("d-phone").textContent = o.phone;
     $("d-email").replaceChildren(el("a", { href: "mailto:" + o.email }, o.email));

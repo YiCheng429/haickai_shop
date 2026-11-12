@@ -139,3 +139,6 @@ textarea { resize: vertical; }
   .layout:not(.show-detail) .detail-col { display: none; }
 }
 .kv a, .note-box a { color: var(--gold-deep); }
+.badges { display: inline-flex; gap: 0.3rem; flex-wrap: wrap; justify-content: flex-end; }
+.badge.s-reported { border-color: var(--gold-deep); color: #fff; background: var(--gold-deep); }
+.tab-reported:not(.is-active) { border-color: var(--gold); color: var(--gold-deep); }

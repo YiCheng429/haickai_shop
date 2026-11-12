@@ -1,0 +1,54 @@
+# 微光盲盒 Glimmer Box
+# https://shop.haickai.com/shop/
+
+User-agent: *
+Allow: /
+Disallow: /shop/admin/
+Disallow: /shop/api/
+Disallow: /admin/
+Disallow: /api/
+
+User-agent: GPTBot
+Allow: /
+Disallow: /shop/admin/
+Disallow: /shop/api/
+Disallow: /admin/
+Disallow: /api/
+
+User-agent: OAI-SearchBot
+Allow: /
+Disallow: /shop/admin/
+Disallow: /shop/api/
+Disallow: /admin/
+Disallow: /api/
+
+User-agent: ChatGPT-User
+Allow: /
+Disallow: /shop/admin/
+Disallow: /shop/api/
+Disallow: /admin/
+Disallow: /api/
+
+User-agent: PerplexityBot
+Allow: /
+Disallow: /shop/admin/
+Disallow: /shop/api/
+Disallow: /admin/
+Disallow: /api/
+
+User-agent: ClaudeBot
+Allow: /
+Disallow: /shop/admin/
+Disallow: /shop/api/
+Disallow: /admin/
+Disallow: /api/
+
+User-agent: Google-Extended
+Allow: /
+Disallow: /shop/admin/
+Disallow: /shop/api/
+Disallow: /admin/
+Disallow: /api/
+
+Sitemap: https://shop.haickai.com/sitemap.xml
+Sitemap: https://shop.haickai.com/shop/sitemap.xml

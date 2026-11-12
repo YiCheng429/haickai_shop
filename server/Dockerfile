@@ -12,7 +12,7 @@ COPY server/src ./src
 COPY server/migrations ./migrations
 COPY server/admin ./admin
 # 前端靜態檔（SERVE_STATIC=true 時由 Node 提供）
-COPY index.html .nojekyll /app/public/
+COPY index.html .nojekyll robots.txt sitemap.xml llms.txt llms-full.txt /app/public/
 COPY css /app/public/css
 COPY js /app/public/js
 COPY images /app/public/images

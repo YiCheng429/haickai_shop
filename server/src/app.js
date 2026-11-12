@@ -5,6 +5,7 @@ const express = require("express");
 const helmet = require("helmet");
 const cors = require("cors");
 const { rateLimit } = require("express-rate-limit");
+const compression = require("compression");
 
 const config = require("./config");
 const pool = require("./db");
@@ -256,6 +257,7 @@ function createApp() {
   const app = express();
   app.disable("x-powered-by");
   app.set("trust proxy", config.trustProxy);
+  app.use(compression());
 
   app.use(helmet({
     contentSecurityPolicy: {
@@ -289,6 +291,7 @@ function createApp() {
   api.use(express.json({ limit: "16kb", strict: true, type: ["application/json"] }));
   api.use((req, res, next) => {
     res.set("Cache-Control", "no-store");
+    res.set("X-Robots-Tag", "noindex, nofollow");
     next();
   });
   api.use(buildApiRouter());
@@ -320,19 +323,31 @@ function createApp() {
     app.use(m, adminHeaders, adminStatic);
   }
 
-  // 根目錄導向前台
-  if (config.basePath && config.serveStatic) {
-    app.get("/", (req, res) => res.redirect(302, config.basePath + "/"));
-  }
-
   if (config.serveStatic) {
     const dir = path.resolve(__dirname, "..", config.staticDir);
+    const siteFile = (name, type) => (req, res) => {
+      res.set("Content-Type", type);
+      res.set("Cache-Control", "public, max-age=3600");
+      res.sendFile(path.join(dir, name));
+    };
+    // 網域根路徑提供給爬蟲；不可被 / → /shop/ 轉向帶走
+    app.get("/robots.txt", siteFile("robots.txt", "text/plain; charset=utf-8"));
+    app.get("/sitemap.xml", siteFile("sitemap.xml", "application/xml; charset=utf-8"));
+    app.get("/llms.txt", siteFile("llms.txt", "text/plain; charset=utf-8"));
+    app.get("/llms-full.txt", siteFile("llms-full.txt", "text/plain; charset=utf-8"));
+
+    if (config.basePath) {
+      app.get("/", (req, res) => res.redirect(301, config.basePath + "/"));
+    }
+
     const staticMw = express.static(dir, {
       index: "index.html",
       dotfiles: "ignore",
-      maxAge: config.env === "production" ? "1h" : 0,
+      maxAge: config.env === "production" ? "7d" : 0,
       setHeaders: (res, file) => {
         if (file.endsWith(".html")) res.setHeader("Cache-Control", "no-cache");
+        else if (/\.(css|js)$/.test(file)) res.setHeader("Cache-Control", "public, max-age=31536000, immutable");
+        else if (/\.(webp|jpe?g|png|svg|gif|ico)$/.test(file)) res.setHeader("Cache-Control", "public, max-age=604800");
       }
     });
     const block = (req, res, next) => (/^\/(server|node_modules)(\/|$)/.test(req.path) ? res.status(404).end() : next());

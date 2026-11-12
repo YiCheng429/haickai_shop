@@ -190,30 +190,43 @@ function applyBrand() {
   });
 }
 
+function productImageAlt(p) {
+  const alts = {
+    ring: "戒指盲盒：當季戒指與禮盒的風格參考照片",
+    bracelet: "手鍊盲盒：當季手鍊與禮盒的風格參考照片",
+    necklace: "項鍊盲盒：當季項鍊與禮盒的風格參考照片",
+    combo: "綜合驚喜盒：項鍊、手鍊、戒指與禮盒的風格參考照片"
+  };
+  return alts[p.id] || p.name;
+}
+
 function renderProducts() {
   const root = document.getElementById("product-grid");
   if (!root) return;
-  root.innerHTML = CONFIG.products
-    .map(
-      (p) => `
+  // 若 HTML 已有靜態商品卡（給搜尋引擎與無 JS 環境），只綁定事件、不重繪
+  if (!root.querySelector(".product-card")) {
+    root.innerHTML = CONFIG.products
+      .map(
+        (p) => `
       <article class="product-card" data-product="${p.id}">
-        <img src="${p.image}" alt="${p.name}" width="800" height="800">
+        <img src="${p.image}" alt="${escapeHtml(productImageAlt(p))}" width="1024" height="1024" loading="lazy" decoding="async">
         <div class="product-body">
-          <h3>${p.name}</h3>
-          <p>${p.desc}</p>
+          <h3>${escapeHtml(p.name)}</h3>
+          <p>${escapeHtml(p.desc)}</p>
           <div class="price">${formatNT(p.price)}</div>
           <div class="product-actions">
             <div class="qty" data-qty-for="${p.id}">
               <button type="button" data-step="-1" aria-label="減少數量">−</button>
-              <input type="text" value="1" size="2" maxlength="2" inputmode="numeric" aria-label="${p.name}數量" readonly>
+              <input type="text" value="1" size="2" maxlength="2" inputmode="numeric" aria-label="${escapeHtml(p.name)}數量" readonly>
               <button type="button" data-step="1" aria-label="增加數量">+</button>
             </div>
             <button type="button" class="btn btn-gold" data-add="${p.id}">加入購物車</button>
           </div>
         </div>
       </article>`
-    )
-    .join("");
+      )
+      .join("");
+  }
 
   root.querySelectorAll(".qty").forEach((wrap) => {
     const input = wrap.querySelector("input");

@@ -205,7 +205,7 @@ function renderProducts() {
           <div class="product-actions">
             <div class="qty" data-qty-for="${p.id}">
               <button type="button" data-step="-1" aria-label="減少數量">−</button>
-              <input type="text" value="1" inputmode="numeric" aria-label="${p.name}數量" readonly>
+              <input type="text" value="1" size="2" maxlength="2" inputmode="numeric" aria-label="${p.name}數量" readonly>
               <button type="button" data-step="1" aria-label="增加數量">+</button>
             </div>
             <button type="button" class="btn btn-gold" data-add="${p.id}">加入購物車</button>
@@ -278,7 +278,7 @@ function renderCart() {
               <div class="meta">${formatNT(p.price)}</div>
               <div class="qty">
                 <button type="button" data-cart-step="-1" aria-label="減少">−</button>
-                <input type="text" value="${item.qty}" readonly aria-label="數量">
+                <input type="text" value="${item.qty}" size="2" maxlength="2" readonly aria-label="數量">
                 <button type="button" data-cart-step="1" aria-label="增加">+</button>
               </div>
             </div>

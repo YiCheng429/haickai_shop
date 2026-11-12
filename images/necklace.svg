@@ -1,0 +1,59 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400" role="img" aria-label="星河項鍊示意圖">
+  <defs>
+    <linearGradient id="nb" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#FFF8F4"/>
+      <stop offset="50%" stop-color="#F8E4DE"/>
+      <stop offset="100%" stop-color="#F3D2CC"/>
+    </linearGradient>
+    <radialGradient id="nglow" cx="50%" cy="42%" r="50%">
+      <stop offset="0%" stop-color="#FFF6EA" stop-opacity=".9"/>
+      <stop offset="70%" stop-color="#F4C7C2" stop-opacity=".15"/>
+      <stop offset="100%" stop-color="#F4C7C2" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="gold" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#F8E6B8"/>
+      <stop offset="45%" stop-color="#D4B06A"/>
+      <stop offset="100%" stop-color="#9A6C32"/>
+    </linearGradient>
+    <linearGradient id="gem" x1="0.2" y1="0" x2="0.8" y2="1">
+      <stop offset="0%" stop-color="#FFF0EE"/>
+      <stop offset="35%" stop-color="#F3B4B0"/>
+      <stop offset="100%" stop-color="#C56B74"/>
+    </linearGradient>
+    <filter id="soft" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="6" stdDeviation="8" flood-color="#C9A15A" flood-opacity=".22"/>
+    </filter>
+  </defs>
+  <rect width="400" height="400" rx="36" fill="url(#nb)"/>
+  <circle cx="200" cy="200" r="150" fill="none" stroke="#E8D5A8" stroke-width="1" opacity=".7"/>
+  <circle cx="200" cy="200" r="128" fill="url(#nglow)"/>
+  <!-- chain -->
+  <path d="M70 70 C 90 160, 130 210, 200 228" fill="none" stroke="url(#gold)" stroke-width="4.2" stroke-linecap="round"/>
+  <path d="M330 70 C 310 160, 270 210, 200 228" fill="none" stroke="url(#gold)" stroke-width="4.2" stroke-linecap="round"/>
+  <!-- beads along chain -->
+  <g fill="url(#gold)">
+    <circle cx="86" cy="108" r="4.2"/>
+    <circle cx="108" cy="148" r="3.6"/>
+    <circle cx="136" cy="182" r="4"/>
+    <circle cx="164" cy="206" r="3.4"/>
+    <circle cx="314" cy="108" r="4.2"/>
+    <circle cx="292" cy="148" r="3.6"/>
+    <circle cx="264" cy="182" r="4"/>
+    <circle cx="236" cy="206" r="3.4"/>
+  </g>
+  <!-- bail + pendant -->
+  <g filter="url(#soft)">
+    <rect x="191" y="222" width="18" height="10" rx="4" fill="url(#gold)"/>
+    <path d="M200 232 L230 292 L200 322 L170 292 Z" fill="url(#gem)" stroke="#C9A15A" stroke-width="1.4"/>
+    <path d="M200 240 L218 286 L200 308 L182 286 Z" fill="#FFF8F6" opacity=".35"/>
+    <circle cx="200" cy="278" r="5" fill="#FFF8EC" opacity=".7"/>
+  </g>
+  <!-- sparkles -->
+  <g fill="#C9A15A">
+    <path d="M86 64l2.2 5 5.2.7-4 3.4 1.2 5.2L86 75.6 81.4 78.3l1.2-5.2-4-3.4 5.2-.7z" opacity=".85"/>
+    <path d="M318 250l1.6 3.6 3.8.5-2.9 2.5.9 3.8-3.4-2-3.4 2 .9-3.8-2.9-2.5 3.8-.5z" opacity=".7"/>
+    <path d="M300 86l1.2 2.8 3 .4-2.3 2 .7 3-2.6-1.5-2.6 1.5.7-3-2.3-2 3-.4z" opacity=".8"/>
+    <circle cx="64" cy="220" r="1.8" opacity=".5"/>
+    <circle cx="340" cy="180" r="1.6" opacity=".45"/>
+  </g>
+</svg>

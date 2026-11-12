@@ -11,7 +11,7 @@ const pool = require("./db");
 const { validateOrder, normalizePhone, ORDER_NO_RE, PHONE_RE } = require("./validate");
 const orders = require("./orders");
 const { paymentInstructions } = require("./payment");
-const { notifyNewOrder, notifyPaymentReport, mailEnabled } = require("./mailer");
+const { notifyNewOrder, notifyPaymentReport } = require("./mailer");
 const { FREE_SHIPPING_THRESHOLD, SHIPPING_NAME } = require("./products");
 
 const asyncH = (fn) => (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next);
@@ -51,39 +51,75 @@ function limiter(max, message) {
     limit: max,
     standardHeaders: "draft-7",
     legacyHeaders: false,
-    handler: (req, res) => res.status(429).json({ ok: false, error: "rate_limited", message })
+    handler: (req, res, _next, options) => {
+      const reset = options?.windowMs ? Math.ceil(options.windowMs / 1000) : 60;
+      res.set("Retry-After", String(reset));
+      res.status(429).json({ ok: false, error: "rate_limited", message });
+    }
   });
 }
 
+const {
+  clientIp,
+  recordFailure,
+  recordSuccess,
+  adminLockGuard,
+  sendLocked
+} = require("./adminAuth");
+
+const adminTokenHash = (config.adminToken && config.adminToken.length >= 16)
+  ? crypto.createHash("sha256").update(config.adminToken).digest()
+  : null;
+
+function tokensEqual(givenRaw) {
+  const given = crypto.createHash("sha256").update(givenRaw).digest();
+  if (!adminTokenHash || given.length !== adminTokenHash.length) {
+    // 維持固定時間路徑：與自身比較後仍失敗
+    crypto.timingSafeEqual(given, given);
+    return false;
+  }
+  return crypto.timingSafeEqual(given, adminTokenHash);
+}
+
 function requireAdmin(req, res, next) {
-  if (!config.adminToken || config.adminToken.length < 16) {
+  if (!adminTokenHash) {
     return res.status(503).json({ ok: false, error: "admin_disabled", message: "尚未設定 ADMIN_TOKEN" });
   }
   const m = /^Bearer\s+(.+)$/i.exec(req.get("authorization") || "");
-  const given = crypto.createHash("sha256").update(m ? m[1].trim() : "").digest();
-  const expected = crypto.createHash("sha256").update(config.adminToken).digest();
-  if (!m || !crypto.timingSafeEqual(given, expected)) {
+  const provided = m ? m[1].trim() : "";
+  if (!tokensEqual(provided)) {
+    const result = recordFailure(clientIp(req));
+    if (result.locked) return sendLocked(res, result.seconds);
     return res.status(401).json({ ok: false, error: "unauthorized" });
   }
+  recordSuccess(clientIp(req));
   next();
+}
+
+function adminTrafficLimiter() {
+  return rateLimit({
+    windowMs: 60 * 1000,
+    limit: 120,
+    standardHeaders: "draft-7",
+    legacyHeaders: false,
+    keyGenerator: (req) => clientIp(req),
+    handler: (req, res) => {
+      res.set("Retry-After", "60");
+      res.status(429).json({ ok: false, error: "rate_limited", message: "請求過於頻繁，請稍後再試" });
+    }
+  });
 }
 
 function buildApiRouter() {
   const r = express.Router();
 
   r.get("/health", asyncH(async (req, res) => {
-    let db = "ok";
     try {
       await pool.query("SELECT 1");
+      res.status(200).json({ ok: true });
     } catch {
-      db = "error";
+      res.status(503).json({ ok: false });
     }
-    res.status(db === "ok" ? 200 : 503).json({
-      ok: db === "ok",
-      db,
-      mail: mailEnabled() ? "enabled" : "disabled",
-      time: new Date().toISOString()
-    });
   }));
 
   r.get("/config", (req, res) => {
@@ -165,6 +201,8 @@ function buildApiRouter() {
 
   // ---- 管理 API ----
   const admin = express.Router();
+  admin.use(adminTrafficLimiter());
+  admin.use(adminLockGuard);
   admin.use(requireAdmin);
 
   admin.get("/orders", asyncH(async (req, res) => {

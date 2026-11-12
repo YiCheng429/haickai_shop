@@ -49,7 +49,7 @@ server/
 
 | 方法 | 路徑 | 說明 |
 |---|---|---|
-| GET | `/shop/api/health` | 健康檢查（含資料庫狀態） |
+| GET | `/shop/api/health` | 健康檢查：資料庫正常回 `{"ok":true}`（200），否則 `{"ok":false}`（503） |
 | POST | `/shop/api/orders` | 建立訂單 |
 | GET | `/shop/api/orders/:orderNo?phone=09xxxxxxxx` | 顧客查詢自己的訂單（需手機號碼相符） |
 | POST | `/shop/api/orders/:orderNo/payment-report` | 顧客回報匯款帳號後五碼 `{phone, last5, amount?}` |
@@ -123,7 +123,8 @@ curl -X PATCH -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/js
 - `helmet`（含 CSP、HSTS 等標頭）、`express.json` 16 KB 上限
 - 每個 IP 每 15 分鐘：建立訂單 `ORDER_RATE_LIMIT` 次（預設 10）、查詢 `LOOKUP_RATE_LIMIT` 次（預設 30）、匯款回報 `REPORT_RATE_LIMIT` 次（預設 10）
 - CORS 預設只允許同網域；需要跨網域時設定 `CORS_ORIGINS`
-- 管理 API 使用 `ADMIN_TOKEN` Bearer（比對採固定時間比較）；未設定或少於 16 字元時管理 API 停用
+- 管理 API 使用 `ADMIN_TOKEN` Bearer（SHA-256 後以 `crypto.timingSafeEqual` 固定時間比較）；未設定或少於 16 字元時管理 API 停用
+- 管理 API 另有每 IP 每分鐘 120 次上限；連續 5 次驗證失敗（15 分鐘內）會鎖定該 IP，從 15 分鐘起指數退避至最長 24 小時（429 + `Retry-After`）。成功驗證不計入失敗次數。限流以 `req.ip` 為準，需正確設定 `TRUST_PROXY`（Railway 為 `1`）
 - 顧客查詢只回傳遮罩後的姓名，不回傳 Email、IP、管理備註
 - 所有 SQL 皆為參數化查詢
 
@@ -220,7 +221,7 @@ location /shop/ {
        add_header Cache-Control "no-cache" always;
    }
    ```
-5. `sudo nginx -t && sudo systemctl reload nginx`，再開 `https://你的網域/shop/api/health` 確認回傳 `{"ok":true,"db":"ok",...}`。
+5. `sudo nginx -t && sudo systemctl reload nginx`，再開 `https://你的網域/shop/api/health` 確認回傳 `{"ok":true}`。
 
 ## 本機開發
 

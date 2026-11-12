@@ -73,6 +73,11 @@
     try { data = await res.json(); } catch { data = null; }
     if (res.status === 401) throw new AuthError("管理金鑰不正確");
     if (res.status === 503 && data?.error === "admin_disabled") throw new AuthError("伺服器尚未設定 ADMIN_TOKEN");
+    if (res.status === 429) {
+      const ra = Number.parseInt(res.headers.get("Retry-After") || "", 10);
+      const hint = Number.isFinite(ra) && ra > 0 ? `請 ${ra} 秒後再試` : "請稍後再試";
+      throw new Error(data?.message || `嘗試次數過多，${hint}`);
+    }
     if (!res.ok || !data?.ok) {
       const fieldMsg = data?.fields ? Object.values(data.fields)[0] : "";
       throw new Error(fieldMsg || data?.message || `請求失敗（${res.status}）`);

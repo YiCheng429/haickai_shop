@@ -238,3 +238,10 @@ npm start
 ```bash
 docker compose exec db pg_dump -U glimmer glimmer > backup-$(date +%F).sql
 ```
+
+## 部署方式三：Railway
+
+1. 建立專案，新增 PostgreSQL（`postgres:17` 映像＋掛載 `/var/lib/postgresql/data` 的 Volume，`PGDATA=/var/lib/postgresql/data/pgdata`）。
+2. 新增 web 服務，環境變數：`DATABASE_URL=${{Postgres.DATABASE_URL}}`、`ADMIN_TOKEN`、`BASE_PATH=/shop`、`SERVE_STATIC=true`、`STATIC_DIR=/app/public`、`TRUST_PROXY=1`、`RAILWAY_DOCKERFILE_PATH=server/Dockerfile`、匯款資訊等。`PORT` 由 Railway 自動提供。
+3. 在 `blindbox-shop/` 根目錄執行 `railway up --service web`（`.railwayignore` 已排除 `.env` 與 `node_modules`）。
+4. 產生網域後，開 `https://<網域>/shop/`；根目錄 `/` 會自動導向 `/shop/`。

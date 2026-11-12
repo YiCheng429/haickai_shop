@@ -280,6 +280,11 @@ function createApp() {
     app.use(m, adminHeaders, adminStatic);
   }
 
+  // 根目錄導向前台
+  if (config.basePath && config.serveStatic) {
+    app.get("/", (req, res) => res.redirect(302, config.basePath + "/"));
+  }
+
   if (config.serveStatic) {
     const dir = path.resolve(__dirname, "..", config.staticDir);
     const staticMw = express.static(dir, {

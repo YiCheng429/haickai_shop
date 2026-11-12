@@ -38,7 +38,7 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
-img { max-width: 100%; display: block; }
+img { max-width: 100%; height: auto; display: block; }
 a { color: var(--gold-deep); text-decoration-thickness: 1px; text-underline-offset: 3px; }
 a:hover { color: var(--ink); }
 
@@ -279,6 +279,7 @@ p:last-child { margin-bottom: 0; }
 .product-card { display: flex; flex-direction: column; background: var(--paper); }
 .product-card img {
   width: 100%;
+  height: auto;
   aspect-ratio: 1;
   object-fit: cover;
   background: #eeeae2;

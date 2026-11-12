@@ -228,7 +228,9 @@ function createApp() {
         "style-src": ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
         "font-src": ["'self'", "data:", "https://fonts.gstatic.com"],
         "connect-src": ["'self'"],
-        "form-action": ["'self'", "mailto:"]
+        "form-action": ["'self'", "mailto:"],
+        // 關閉預設的 upgrade-insecure-requests，避免本機 HTTP 測試被升成 HTTPS
+        "upgrade-insecure-requests": null
       }
     },
     crossOriginEmbedderPolicy: false

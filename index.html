@@ -2,7 +2,7 @@
 <html lang="zh-Hant-TW">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no, viewport-fit=cover">
   <title>微光盲盒 Glimmer Box｜飾品盲盒</title>
   <meta name="description" content="微光盲盒販售項鍊、手鍊、戒指與綜合驚喜盒。確認匯款後，以 7-ELEVEN 交貨便店到店寄送。">
   <link rel="icon" href="images/favicon.svg" type="image/svg+xml">
@@ -22,7 +22,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;600&family=Noto+Serif+TC:wght@400;500;600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/style.css?v=20261112d">
 </head>
 <body>
   <a class="skip-link" href="#main">跳到主要內容</a>
@@ -165,7 +165,12 @@
               <div><span>運費（<span data-bind="shippingName">7-ELEVEN 交貨便・本島一般店到店</span>）</span><span data-bind="shipDisplay">NT$0</span></div>
               <div class="grand"><span>合計</span><span data-bind="total">NT$0</span></div>
             </div>
-            <p class="free-ship-hint" data-bind="freeShipHint">商品滿 NT$600 免運</p>
+            <div class="ship-progress" id="ship-progress">
+              <p class="free-ship-hint" data-bind="freeShipHint">商品滿 NT$600 免運</p>
+              <div class="ship-progress-track" id="ship-progress-track" role="progressbar" aria-valuemin="0" aria-valuemax="600" aria-valuenow="0" aria-label="免運進度">
+                <span class="ship-progress-fill" id="ship-progress-fill"></span>
+              </div>
+            </div>
             <p class="note">
               <strong>商品小計滿 NT$600 免運費。</strong>未滿時，本島一般交貨便運費依 7-ELEVEN 官方公告，按包裹申報價值計算：1,000 元以內為 NT$60，1,001–2,000 元為 NT$70，其後每增加 1,000 元加收 NT$10，最高至 5,000 元為 NT$100。離島定價較高，目前同級距優惠價與本島相同。離島優惠將視官方公告調整，<strong>運費以實際寄送為準</strong>。資料來源：<a href="https://www.7-11.com.tw/service/accept.aspx" target="_blank" rel="noopener noreferrer">7-ELEVEN 交貨便服務頁</a>。
             </p>
@@ -306,7 +311,16 @@
     </div>
   </footer>
 
+  <aside class="cart-bar" id="cart-bar" hidden>
+    <div class="cart-bar-inner">
+      <div class="cart-bar-summary">
+        <span><span data-bind="cartCount">0</span> 件商品</span>
+        <strong data-bind="total">NT$0</strong>
+      </div>
+      <button type="button" class="btn btn-gold" data-scroll-cart>去結帳</button>
+    </div>
+  </aside>
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
-  <script src="js/app.js"></script>
+  <script src="js/app.js?v=20261112d"></script>
 </body>
 </html>

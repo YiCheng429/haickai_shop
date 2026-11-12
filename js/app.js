@@ -50,7 +50,8 @@ const state = {
   orderNo: "",
   idempotencyKey: "",
   lastPhone: "",
-  submitting: false
+  submitting: false,
+  checkoutInView: false
 };
 
 function loadCart() {
@@ -305,10 +306,24 @@ function renderCart() {
   setText("[data-bind='shipDisplay']", !state.cart.length ? "NT$0" : ship === 0 ? "免運" : formatNT(ship));
   setText("[data-bind='total']", formatNT(sub + ship));
   const left = CONFIG.freeShippingThreshold - sub;
+  const met = state.cart.length > 0 && left <= 0;
   setText("[data-bind='freeShipHint']", !state.cart.length
     ? `商品滿 ${formatNT(CONFIG.freeShippingThreshold)} 免運`
-    : left > 0 ? `再買 ${formatNT(left)} 即可免運` : "已達免運門檻，本單免運費 🎉");
+    : left > 0 ? `再買 ${formatNT(left)} 就免運` : "已達免運");
+  const wrap = document.getElementById("ship-progress");
+  const fill = document.getElementById("ship-progress-fill");
+  const track = document.getElementById("ship-progress-track");
+  if (wrap && fill) {
+    const ratio = !state.cart.length ? 0 : Math.min(1, sub / CONFIG.freeShippingThreshold);
+    fill.style.width = Math.round(ratio * 1000) / 10 + "%";
+    wrap.classList.toggle("is-met", met);
+    if (track) {
+      track.setAttribute("aria-valuenow", String(Math.min(sub, CONFIG.freeShippingThreshold)));
+      track.setAttribute("aria-valuemax", String(CONFIG.freeShippingThreshold));
+    }
+  }
   updateOrderText();
+  updateCartBar();
 }
 
 function buyerValues() {
@@ -363,6 +378,66 @@ function toast(message) {
   el.classList.add("show");
   clearTimeout(toast._t);
   toast._t = setTimeout(() => el.classList.remove("show"), 2400);
+}
+
+
+async function copyToClipboard(text) {
+  const value = String(text ?? "");
+  if (!value) return false;
+  try {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      await navigator.clipboard.writeText(value);
+      return true;
+    }
+  } catch { /* 改用備援 */ }
+  try {
+    const ta = document.createElement("textarea");
+    ta.value = value;
+    ta.setAttribute("readonly", "");
+    ta.style.position = "fixed";
+    ta.style.left = "-9999px";
+    document.body.appendChild(ta);
+    ta.focus();
+    ta.select();
+    const ok = document.execCommand("copy");
+    ta.remove();
+    return ok;
+  } catch {
+    return false;
+  }
+}
+
+async function handleCopyClick(btn) {
+  const text = btn.getAttribute("data-copy") || "";
+  const label = btn.getAttribute("data-copy-label") || "內容";
+  const ok = await copyToClipboard(text);
+  toast(ok ? `已複製${label}` : "複製失敗，請手動選取");
+}
+
+function updateCartBar() {
+  const bar = document.getElementById("cart-bar");
+  const show = state.cart.length > 0 && !state.checkoutInView;
+  if (bar) bar.hidden = !show;
+  document.body.classList.toggle("has-cart-bar", show);
+}
+
+function bindCartBarObserver() {
+  const section = document.getElementById("order");
+  if (!section || !("IntersectionObserver" in window)) return;
+  const io = new IntersectionObserver((entries) => {
+    state.checkoutInView = entries.some((e) => e.isIntersecting);
+    updateCartBar();
+  }, { threshold: 0.18, rootMargin: "-80px 0px 0px 0px" });
+  io.observe(section);
+}
+
+function jumpToLookup(orderNo, phone) {
+  const noEl = document.getElementById("lookup-order-no");
+  const phoneEl = document.getElementById("lookup-phone");
+  if (noEl && orderNo) noEl.value = orderNo;
+  if (phoneEl && phone) phoneEl.value = phone;
+  document.getElementById("lookup")?.scrollIntoView({ behavior: "smooth", block: "start" });
+  phoneEl?.focus();
 }
 
 function isValidEmail(value) {
@@ -420,11 +495,11 @@ function showConfirmation() {
   if (body) {
     body.innerHTML = `<p>你的訂單編號是 <span class="order-no">${escapeHtml(state.orderNo)}</span>。請在開啟的郵件視窗中按下傳送；若郵件沒有開啟，請來信 ${escapeHtml(CONFIG.email)}。</p>`;
   }
-  box?.classList.remove("is-error");
+  box?.classList.remove("is-error", "is-success");
   box?.classList.add("is-visible");
 }
 
-/* 線上下單成功：顯示伺服器回傳的訂單編號、金額與匯款資訊 */
+/* 線上下單成功：清楚顯示訂單編號、應付金額與匯款資料 */
 function showServerConfirmation(order, payment) {
   const box = document.getElementById("order-confirm");
   const title = document.getElementById("confirm-title");
@@ -432,33 +507,54 @@ function showServerConfirmation(order, payment) {
   const items = (order.items || [])
     .map((i) => `<li>${escapeHtml(i.name)} × ${escapeHtml(i.qty)}　${formatNT(i.lineTotal)}</li>`)
     .join("");
+  const amountText = String(order.total);
   let bank = "";
   if (payment && payment.configured) {
+    const bankLabel = `${payment.bankName || ""}${payment.bankCode ? `（${payment.bankCode}）` : ""}`;
     bank = `
-      <dl>
-        <dt>銀行</dt><dd>${escapeHtml(payment.bankName)}${payment.bankCode ? `（${escapeHtml(payment.bankCode)}）` : ""}</dd>
-        <dt>帳號</dt><dd class="order-no">${escapeHtml(payment.account)}</dd>
-        ${payment.accountName ? `<dt>戶名</dt><dd>${escapeHtml(payment.accountName)}</dd>` : ""}
-      </dl>`;
+      <div class="success-bank">
+        <h5>匯款資訊</h5>
+        <div class="success-bank-row"><dt>銀行</dt><dd>${escapeHtml(bankLabel)}</dd></div>
+        <div class="success-bank-row">
+          <dt>帳號</dt>
+          <dd class="order-no">${escapeHtml(payment.account)}</dd>
+          <button type="button" class="btn btn-ghost btn-copy" data-copy="${escapeHtml(payment.account)}" data-copy-label="帳號">複製帳號</button>
+        </div>
+        ${payment.accountName ? `<div class="success-bank-row"><dt>戶名</dt><dd>${escapeHtml(payment.accountName)}</dd></div>` : ""}
+      </div>`;
+  } else {
+    bank = `<p>${escapeHtml(payment?.message || "匯款資訊將另外通知。")}</p>`;
   }
   if (title) title.textContent = "訂單已成立";
   if (body) {
     body.innerHTML = `
-      <p>你的訂單編號是 <span class="order-no">${escapeHtml(order.orderNo)}</span>，請記下此編號以便查詢。</p>
-      <dl>
-        <dt>商品小計</dt><dd>${formatNT(order.subtotal)}</dd>
-        <dt>運費</dt><dd>${order.shipping === 0 ? "免運" : formatNT(order.shipping)}</dd>
-        <dt>應付金額</dt><dd class="amount">${formatNT(order.total)}</dd>
-      </dl>
+      <div class="success-hero">
+        <p class="success-kicker">Order number</p>
+        <p class="success-order-no">${escapeHtml(order.orderNo)}</p>
+        <p class="success-hint">建議截圖或記下訂單編號，方便之後查詢與對帳。</p>
+        <p class="success-amount-label">應付金額</p>
+        <p class="success-amount">${formatNT(order.total)}</p>
+        <div class="success-actions">
+          <button type="button" class="btn btn-ghost btn-copy" data-copy="${escapeHtml(amountText)}" data-copy-label="金額">複製金額</button>
+        </div>
+      </div>
       <ul>${items}</ul>
+      <p>商品小計 ${formatNT(order.subtotal)}　運費 ${order.shipping === 0 ? "免運" : formatNT(order.shipping)}</p>
       ${bank}
-      <p>${escapeHtml(payment?.message || "")}</p>
+      <p class="success-remind">匯款後，請到「訂單查詢」回報轉出帳號後五碼，方便我們核對入帳。</p>
+      <button type="button" class="btn btn-ink success-jump" id="jump-lookup">前往訂單查詢（已帶入編號與手機）</button>
       ${reportFormHtml(order.orderNo, state.lastPhone, null)}
-      <p>可隨時於「訂單查詢」以訂單編號與手機號碼查看進度，問題請來信 ${escapeHtml(CONFIG.email)}。</p>`;
+      <p>問題請來信 ${escapeHtml(CONFIG.email)}。</p>`;
   }
   box?.classList.remove("is-error");
-  box?.classList.add("is-visible");
-  box?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  box?.classList.add("is-visible", "is-success");
+  body?.querySelectorAll("[data-copy]").forEach((btn) => {
+    btn.addEventListener("click", () => handleCopyClick(btn));
+  });
+  document.getElementById("jump-lookup")?.addEventListener("click", () => {
+    jumpToLookup(order.orderNo, state.lastPhone);
+  });
+  box?.scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
 const FIELD_INPUT_IDS = {
@@ -525,7 +621,6 @@ async function submitOrder() {
     });
     renderCart();
     showServerConfirmation(data.order, data.payment);
-    toast(`訂單已成立：${data.order.orderNo}`);
     return;
   }
   if (reachable && status === 400) {
@@ -743,6 +838,7 @@ document.addEventListener("DOMContentLoaded", () => {
   renderProducts();
   renderCart();
   bindUi();
+  bindCartBarObserver();
   const year = document.getElementById("year");
   if (year) year.textContent = String(new Date().getFullYear());
 });

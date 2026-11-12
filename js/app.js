@@ -1,72 +1,49 @@
-/* ============================================================
- * 微光盲盒 Glimmer Box — 賣家設定區
- * 開賣前請只改這份 CONFIG（網址、價格、聯絡方式、賣貨便連結）。
- * 賣貨便沒有對外結帳 API：請先在 myship.7-11.com.tw 建立賣場，
- * 再把賣場網址貼到 myshipUrl；若單一商品有獨立連結，填 products[].myshipUrl。
- * ============================================================ */
 const CONFIG = {
   brandName: "微光盲盒",
   brandNameEn: "Glimmer Box",
-  tagline: "每一盒，都是一次微光相遇。項鍊、手鍊、戒指與綜合盲盒，以 7-ELEVEN 賣貨便寄出。",
+  tagline: "項鍊、手鍊、戒指與綜合驚喜盒。確認匯款後，以 7-ELEVEN 交貨便店到店寄出。",
   siteUrl: "https://haickai.com",
-
-  /* 請改成你的賣貨便賣場網址，例如 https://myship.7-11.com.tw/general/detail/GM000000000 */
-  myshipUrl: "https://myship.7-11.com.tw/",
-
-  instagramUrl: "https://www.instagram.com/your_ig_here",
-  instagramHandle: "@your_ig_here",
-  lineUrl: "https://line.me/ti/p/your_line_id",
-  lineId: "@your_line_id",
-  email: "hello@haickai.com",
-
-  /* 結帳頁顯示的運費（新台幣）。實際金額以賣貨便結帳為準。
-     2026/11/1–11/30 官網公告：本離島常溫店取優惠 NT$38（定價 NT$60）。 */
-  shippingFee: 38,
-  shippingName: "7-ELEVEN 賣貨便・常溫店取",
-  shippingNote:
-    "運費為示例，實際金額以賣貨便結帳為準。依官方服務條款，常溫店取定價為本島每筆 NT$60、離島每筆 NT$140，優惠價依官網公告。2026 年 11 月 1 日至 11 月 30 日，本離島常溫店取優惠價為 NT$38。",
-
+  email: "haickaiservice@gmail.com",
+  storeLookupUrl: "https://emap.pcsc.com.tw/",
+  shippingName: "7-ELEVEN 交貨便・本島一般店到店",
   products: [
     {
-      id: "necklace",
-      name: "星河項鍊盲盒",
-      desc: "隨機一款項鍊。可能是細鍊、墜飾或珍珠點綴——拆開才知道是哪一道星光。",
+      id: "ring",
+      name: "戒指盲盒",
+      desc: "隨機一枚當季戒指。每盒從當季系列中出貨一款設計。",
       price: 199,
-      image: "images/necklace.svg",
-      myshipUrl: ""
+      image: "images/ring.webp"
     },
     {
       id: "bracelet",
-      name: "月光手鍊盲盒",
-      desc: "隨機一款手鍊。串珠、細鍊或小吊飾，戴上手腕就像把月光圈起來。",
+      name: "手鍊盲盒",
+      desc: "隨機一款當季手鍊。每盒從當季系列中出貨一款設計。",
       price: 249,
-      image: "images/bracelet.svg",
-      myshipUrl: ""
+      image: "images/bracelet.webp"
     },
     {
-      id: "ring",
-      name: "晨露戒指盲盒",
-      desc: "隨機一枚戒指。素圈、細鑽風或柔粉石色，每一枚都像一滴剛好落下的晨露。",
+      id: "necklace",
+      name: "項鍊盲盒",
+      desc: "隨機一款當季項鍊。每盒從當季系列中出貨一款設計。",
       price: 299,
-      image: "images/ring.svg",
-      myshipUrl: ""
+      image: "images/necklace.webp"
     },
     {
       id: "combo",
-      name: "微光綜合盲盒",
-      desc: "一次相遇三種驚喜：項鍊、手鍊、戒指各一款，組合成屬於你的微光套組。",
-      price: 599,
-      image: "images/combo.svg",
-      myshipUrl: ""
+      name: "綜合驚喜盒",
+      desc: "項鍊、手鍊、戒指各一，皆從當季系列中隨機出貨。",
+      price: 399,
+      image: "images/combo.webp"
     }
   ]
 };
 
-const STORAGE_KEY = "glimmer-box-cart-v1";
+const STORAGE_KEY = "glimmer-box-cart-v2";
 const MAX_QTY = 10;
 
 const state = {
-  cart: loadCart()
+  cart: loadCart(),
+  orderNo: ""
 };
 
 function loadCart() {
@@ -100,27 +77,19 @@ function cartSubtotal() {
   }, 0);
 }
 
+/* 依 7-ELEVEN 官方一般交貨便「包裹價值」級距計算本島運費。
+   離島同級距目前優惠價相同；實際費用以寄件時公告為準。 */
+function shippingFee(subtotal) {
+  if (!subtotal) return 0;
+  if (subtotal <= 1000) return 60;
+  if (subtotal <= 2000) return 70;
+  if (subtotal <= 3000) return 80;
+  if (subtotal <= 4000) return 90;
+  return 100;
+}
+
 function formatNT(n) {
   return "NT$" + Number(n).toLocaleString("zh-Hant-TW");
-}
-
-function isMyshipPlaceholder(url) {
-  if (!url) return true;
-  try {
-    const u = new URL(url);
-    return u.hostname === "myship.7-11.com.tw" && (u.pathname === "/" || u.pathname === "");
-  } catch {
-    return true;
-  }
-}
-
-function checkoutUrl() {
-  const unique = [...new Set(state.cart.map((i) => i.id))];
-  if (unique.length === 1) {
-    const p = productById(unique[0]);
-    if (p && p.myshipUrl && !isMyshipPlaceholder(p.myshipUrl)) return p.myshipUrl;
-  }
-  return CONFIG.myshipUrl;
 }
 
 function setText(selector, text) {
@@ -129,27 +98,30 @@ function setText(selector, text) {
   });
 }
 
+function generateOrderNo() {
+  const d = new Date();
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  let code = "";
+  const arr = new Uint8Array(4);
+  crypto.getRandomValues(arr);
+  for (const n of arr) code += chars[n % chars.length];
+  return `GB-${y}${m}${day}-${code}`;
+}
+
 function applyBrand() {
   setText("[data-bind='brandName']", CONFIG.brandName);
   setText("[data-bind='brandNameEn']", CONFIG.brandNameEn);
   setText("[data-bind='tagline']", CONFIG.tagline);
-  setText("[data-bind='igHandle']", CONFIG.instagramHandle);
-  setText("[data-bind='lineId']", CONFIG.lineId);
   setText("[data-bind='email']", CONFIG.email);
   setText("[data-bind='shippingName']", CONFIG.shippingName);
-  setText("[data-bind='shippingFee']", formatNT(CONFIG.shippingFee));
-
-  document.querySelectorAll("[data-href='instagram']").forEach((a) => {
-    a.href = CONFIG.instagramUrl;
-  });
-  document.querySelectorAll("[data-href='line']").forEach((a) => {
-    a.href = CONFIG.lineUrl;
-  });
   document.querySelectorAll("[data-href='email']").forEach((a) => {
     a.href = "mailto:" + CONFIG.email;
   });
-  document.querySelectorAll("[data-href='myship']").forEach((a) => {
-    a.href = CONFIG.myshipUrl;
+  document.querySelectorAll("[data-href='storeLookup']").forEach((a) => {
+    a.href = CONFIG.storeLookupUrl;
   });
 }
 
@@ -160,14 +132,11 @@ function renderProducts() {
     .map(
       (p) => `
       <article class="product-card" data-product="${p.id}">
-        <img src="${p.image}" alt="${p.name}示意圖（原創插畫）" width="400" height="400">
+        <img src="${p.image}" alt="${p.name}" width="800" height="800">
         <div class="product-body">
           <h3>${p.name}</h3>
           <p>${p.desc}</p>
-          <div class="price-row">
-            <span class="price">${formatNT(p.price)}</span>
-            <span class="price-tag">示例售價</span>
-          </div>
+          <div class="price">${formatNT(p.price)}</div>
           <div class="product-actions">
             <div class="qty" data-qty-for="${p.id}">
               <button type="button" data-step="-1" aria-label="減少數量">−</button>
@@ -206,6 +175,7 @@ function addToCart(id, qty) {
   const existing = state.cart.find((i) => i.id === id);
   if (existing) existing.qty = Math.min(MAX_QTY, existing.qty + qty);
   else state.cart.push({ id, qty: Math.min(MAX_QTY, qty) });
+  state.orderNo = "";
   saveCart();
   renderCart();
 }
@@ -216,6 +186,7 @@ function setCartQty(id, qty) {
     const item = state.cart.find((i) => i.id === id);
     if (item) item.qty = Math.min(MAX_QTY, qty);
   }
+  state.orderNo = "";
   saveCart();
   renderCart();
 }
@@ -239,15 +210,15 @@ function renderCart() {
             <img src="${p.image}" alt="">
             <div>
               <h4>${p.name}</h4>
-              <div class="meta">${formatNT(p.price)} · 示例售價</div>
-              <div class="qty" style="margin-top:0.4rem">
+              <div class="meta">${formatNT(p.price)}</div>
+              <div class="qty">
                 <button type="button" data-cart-step="-1" aria-label="減少">−</button>
                 <input type="text" value="${item.qty}" readonly aria-label="數量">
                 <button type="button" data-cart-step="1" aria-label="增加">+</button>
               </div>
             </div>
             <div>
-              <div style="font-weight:600">${formatNT(p.price * item.qty)}</div>
+              <div>${formatNT(p.price * item.qty)}</div>
               <button type="button" class="remove" data-remove="${p.id}">移除</button>
             </div>
           </div>`;
@@ -265,49 +236,62 @@ function renderCart() {
   }
 
   const sub = cartSubtotal();
-  const ship = state.cart.length ? CONFIG.shippingFee : 0;
-  const total = sub + ship;
+  const ship = shippingFee(sub);
   setText("[data-bind='subtotal']", formatNT(sub));
   setText("[data-bind='shipDisplay']", state.cart.length ? formatNT(ship) : "NT$0");
-  setText("[data-bind='total']", formatNT(total));
+  setText("[data-bind='total']", formatNT(sub + ship));
   updateOrderText();
-  updateMyshipButton();
 }
 
 function buyerValues() {
   return {
     name: (document.getElementById("buyer-name")?.value || "").trim(),
     phone: (document.getElementById("buyer-phone")?.value || "").trim(),
+    email: (document.getElementById("buyer-email")?.value || "").trim(),
+    storeName: (document.getElementById("store-name")?.value || "").trim(),
+    storeNo: (document.getElementById("store-no")?.value || "").trim(),
     notes: (document.getElementById("buyer-notes")?.value || "").trim()
   };
 }
 
+function ensureOrderNo() {
+  if (!state.orderNo) state.orderNo = generateOrderNo();
+  return state.orderNo;
+}
+
 function buildOrderText() {
-  const { name, phone, notes } = buyerValues();
+  const b = buyerValues();
+  const orderNo = state.orderNo || "（送出時產生）";
   const lines = [];
   lines.push(`【${CONFIG.brandName} ${CONFIG.brandNameEn} 訂單】`);
+  lines.push(`訂單編號：${orderNo}`);
   lines.push(`網站：${CONFIG.siteUrl}`);
-  lines.push(`姓名：${name || "（尚未填寫）"}`);
-  lines.push(`電話：${phone || "（尚未填寫）"}`);
-  lines.push(`備註：${notes || "（無）"}`);
+  lines.push("");
+  lines.push(`取件人姓名：${b.name || "（尚未填寫）"}`);
+  lines.push(`電話：${b.phone || "（尚未填寫）"}`);
+  lines.push(`Email：${b.email || "（尚未填寫）"}`);
+  lines.push(`取貨門市：${b.storeName || "（尚未填寫）"}`);
+  lines.push(`門市店號：${b.storeNo || "（尚未填寫）"}`);
+  lines.push(`備註：${b.notes || "（無）"}`);
   lines.push("");
   lines.push("商品：");
   if (!state.cart.length) lines.push("（購物車是空的）");
   else {
     state.cart.forEach((item) => {
       const p = productById(item.id);
-      lines.push(`- ${p.name} × ${item.qty}　${formatNT(p.price * item.qty)}（示例售價）`);
+      lines.push(`- ${p.name} × ${item.qty}　${formatNT(p.price * item.qty)}`);
     });
   }
   const sub = cartSubtotal();
-  const ship = state.cart.length ? CONFIG.shippingFee : 0;
+  const ship = shippingFee(sub);
   lines.push("");
   lines.push(`商品小計：${formatNT(sub)}`);
-  lines.push(`運費（${CONFIG.shippingName}，示例）：${formatNT(ship)}`);
-  lines.push(`合計（示例）：${formatNT(sub + ship)}`);
+  lines.push(`運費（${CONFIG.shippingName}）：${formatNT(state.cart.length ? ship : 0)}`);
+  lines.push(`合計：${formatNT(sub + (state.cart.length ? ship : 0))}`);
   lines.push("");
-  lines.push("請至 7-ELEVEN 賣貨便賣場下單，並將此訂單內容貼到賣場備註或私訊賣家確認。");
-  lines.push("實際商品金額與運費以賣貨便結帳頁為準。價格為網站示例。");
+  lines.push("付款方式：匯款／轉帳（請等候賣家來回信提供帳戶資訊，確認收款後出貨）。");
+  lines.push("配送：7-ELEVEN 交貨便店到店。");
+  lines.push(`若郵件未能自動開啟，請將此內容寄至 ${CONFIG.email}`);
   return lines.join("\n");
 }
 
@@ -316,68 +300,98 @@ function updateOrderText() {
   if (area) area.value = buildOrderText();
 }
 
-function updateMyshipButton() {
-  const btn = document.getElementById("open-myship");
-  const note = document.getElementById("myship-setup-note");
-  if (!btn) return;
-  const url = checkoutUrl();
-  const needsSetup = isMyshipPlaceholder(url);
-  btn.dataset.url = url;
-  if (note) note.hidden = !needsSetup;
-}
-
 function toast(message) {
   const el = document.getElementById("toast");
   if (!el) return;
   el.textContent = message;
   el.classList.add("show");
   clearTimeout(toast._t);
-  toast._t = setTimeout(() => el.classList.remove("show"), 2200);
+  toast._t = setTimeout(() => el.classList.remove("show"), 2400);
+}
+
+function isValidEmail(value) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
 }
 
 function validateBuyer() {
-  const { name, phone } = buyerValues();
+  const b = buyerValues();
   if (!state.cart.length) {
-    toast("請先選購商品再結帳");
+    toast("請先選購商品再送出訂單");
     return false;
   }
-  if (!name) {
+  if (!b.name) {
     toast("請填寫取件人姓名");
     document.getElementById("buyer-name")?.focus();
     return false;
   }
-  const digits = phone.replace(/\D/g, "");
+  const digits = b.phone.replace(/\D/g, "");
   if (digits.length < 8) {
     toast("請填寫有效的聯絡電話");
     document.getElementById("buyer-phone")?.focus();
+    return false;
+  }
+  if (!isValidEmail(b.email)) {
+    toast("請填寫有效的 Email");
+    document.getElementById("buyer-email")?.focus();
+    return false;
+  }
+  if (!b.storeName) {
+    toast("請填寫取貨門市名稱");
+    document.getElementById("store-name")?.focus();
+    return false;
+  }
+  const storeDigits = b.storeNo.replace(/\D/g, "");
+  if (storeDigits.length !== 6) {
+    toast("請填寫 6 碼門市店號");
+    document.getElementById("store-no")?.focus();
     return false;
   }
   return true;
 }
 
 async function copyOrder() {
-  if (!validateBuyer()) return;
   const text = buildOrderText();
   try {
     await navigator.clipboard.writeText(text);
     toast("訂單內容已複製");
+    return true;
   } catch {
     const area = document.getElementById("order-text");
+    area?.focus();
     area?.select();
-    document.execCommand("copy");
-    toast("請再按一次複製，或手動全選訂單內容");
+    try {
+      document.execCommand("copy");
+      toast("訂單內容已複製");
+      return true;
+    } catch {
+      toast("請手動全選並複製訂單內容");
+      return false;
+    }
   }
 }
 
-function openMyship() {
+function mailtoHref() {
+  const orderNo = ensureOrderNo();
+  const subject = `${CONFIG.brandName}訂單 ${orderNo}`;
+  const body = buildOrderText();
+  return `mailto:${CONFIG.email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+}
+
+function showConfirmation() {
+  const box = document.getElementById("order-confirm");
+  const no = document.getElementById("confirm-order-no");
+  if (no) no.textContent = state.orderNo;
+  box?.classList.add("is-visible");
+}
+
+async function submitOrder() {
   if (!validateBuyer()) return;
-  const url = checkoutUrl();
-  window.open(url, "_blank", "noopener,noreferrer");
-  if (isMyshipPlaceholder(url)) {
-    toast("已開啟賣貨便首頁。請先在設定裡貼上你的賣場連結");
-  } else {
-    toast("已開啟賣貨便賣場，請貼上剛複製的訂單內容");
-  }
+  ensureOrderNo();
+  updateOrderText();
+  await copyOrder();
+  const href = mailtoHref();
+  window.location.href = href;
+  showConfirmation();
 }
 
 function bindUi() {
@@ -395,11 +409,17 @@ function bindUi() {
     });
   });
 
-  ["buyer-name", "buyer-phone", "buyer-notes"].forEach((id) => {
+  ["buyer-name", "buyer-phone", "buyer-email", "store-name", "store-no", "buyer-notes"].forEach((id) => {
     document.getElementById(id)?.addEventListener("input", updateOrderText);
   });
-  document.getElementById("copy-order")?.addEventListener("click", copyOrder);
-  document.getElementById("open-myship")?.addEventListener("click", openMyship);
+  document.getElementById("copy-order")?.addEventListener("click", async () => {
+    if (!validateBuyer()) return;
+    ensureOrderNo();
+    updateOrderText();
+    await copyOrder();
+    showConfirmation();
+  });
+  document.getElementById("submit-order")?.addEventListener("click", submitOrder);
   document.querySelectorAll("[data-scroll-cart]").forEach((el) => {
     el.addEventListener("click", (e) => {
       e.preventDefault();

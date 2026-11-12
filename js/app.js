@@ -6,6 +6,7 @@ const CONFIG = {
   email: "haickaiservice@gmail.com",
   storeLookupUrl: "https://emap.pcsc.com.tw/",
   shippingName: "7-ELEVEN 交貨便・本島一般店到店",
+  freeShippingThreshold: 600, // 商品小計滿此金額免運
   products: [
     {
       id: "ring",
@@ -81,6 +82,7 @@ function cartSubtotal() {
    離島同級距目前優惠價相同；實際費用以寄件時公告為準。 */
 function shippingFee(subtotal) {
   if (!subtotal) return 0;
+  if (subtotal >= CONFIG.freeShippingThreshold) return 0;
   if (subtotal <= 1000) return 60;
   if (subtotal <= 2000) return 70;
   if (subtotal <= 3000) return 80;
@@ -238,8 +240,12 @@ function renderCart() {
   const sub = cartSubtotal();
   const ship = shippingFee(sub);
   setText("[data-bind='subtotal']", formatNT(sub));
-  setText("[data-bind='shipDisplay']", state.cart.length ? formatNT(ship) : "NT$0");
+  setText("[data-bind='shipDisplay']", !state.cart.length ? "NT$0" : ship === 0 ? "免運" : formatNT(ship));
   setText("[data-bind='total']", formatNT(sub + ship));
+  const left = CONFIG.freeShippingThreshold - sub;
+  setText("[data-bind='freeShipHint']", !state.cart.length
+    ? `商品滿 ${formatNT(CONFIG.freeShippingThreshold)} 免運`
+    : left > 0 ? `再買 ${formatNT(left)} 即可免運` : "已達免運門檻，本單免運費 🎉");
   updateOrderText();
 }
 
@@ -286,7 +292,7 @@ function buildOrderText() {
   const ship = shippingFee(sub);
   lines.push("");
   lines.push(`商品小計：${formatNT(sub)}`);
-  lines.push(`運費（${CONFIG.shippingName}）：${formatNT(state.cart.length ? ship : 0)}`);
+  lines.push(`運費（${CONFIG.shippingName}）：${state.cart.length && ship === 0 ? "免運（滿 " + formatNT(CONFIG.freeShippingThreshold) + "）" : formatNT(state.cart.length ? ship : 0)}`);
   lines.push(`合計：${formatNT(sub + (state.cart.length ? ship : 0))}`);
   lines.push("");
   lines.push("付款方式：匯款／轉帳（請等候賣家來回信提供帳戶資訊，確認收款後出貨）。");

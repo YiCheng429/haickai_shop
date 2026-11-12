@@ -548,3 +548,13 @@ textarea { min-height: 4.5rem; resize: vertical; }
   html { scroll-behavior: auto; }
   * { transition: none !important; }
 }
+
+.free-ship-hint {
+  margin: 10px 0 0;
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: rgba(196, 164, 112, 0.14);
+  color: inherit;
+  font-size: 0.9rem;
+  text-align: center;
+}

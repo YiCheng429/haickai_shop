@@ -2,7 +2,6 @@ const CONFIG = {
   brandName: "微光盲盒",
   brandNameEn: "Glimmer Box",
   tagline: "項鍊、手鍊、戒指與綜合驚喜盒。確認匯款後，以 7-ELEVEN 交貨便店到店寄出。",
-  siteUrl: "https://haickai.com",
   email: "haickaiservice@gmail.com",
   storeLookupUrl: "https://emap.pcsc.com.tw/",
   shippingName: "7-ELEVEN 交貨便・本島一般店到店",
@@ -271,7 +270,7 @@ function buildOrderText() {
   const lines = [];
   lines.push(`【${CONFIG.brandName} ${CONFIG.brandNameEn} 訂單】`);
   lines.push(`訂單編號：${orderNo}`);
-  lines.push(`網站：${CONFIG.siteUrl}`);
+  lines.push(`網站：${location.origin}${location.pathname}`);
   lines.push("");
   lines.push(`取件人姓名：${b.name || "（尚未填寫）"}`);
   lines.push(`電話：${b.phone || "（尚未填寫）"}`);

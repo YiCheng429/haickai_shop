@@ -1,0 +1,41 @@
+# 使用方式（在 server/ 資料夾內）：
+#   cp .env.example .env   # 填好 POSTGRES_PASSWORD、ADMIN_TOKEN 等
+#   docker compose up -d --build
+# 服務只綁定 127.0.0.1:3000，請由 nginx 反向代理對外提供 /shop
+services:
+  db:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: glimmer
+      POSTGRES_USER: glimmer
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?請在 .env 設定 POSTGRES_PASSWORD}
+      TZ: Asia/Taipei
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U glimmer -d glimmer"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build:
+      context: ..
+      dockerfile: server/Dockerfile
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      DATABASE_URL: postgres://glimmer:${POSTGRES_PASSWORD}@db:5432/glimmer
+      DATABASE_SSL: "false"
+      PORT: "3000"
+      SERVE_STATIC: ${SERVE_STATIC:-true}
+      STATIC_DIR: /app/public
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:3000:3000"
+
+volumes:
+  pgdata:

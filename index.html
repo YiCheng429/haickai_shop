@@ -42,6 +42,7 @@
         <a href="#policy">盲盒說明</a>
         <a href="#order">結帳</a>
         <a href="#faq">常見問題</a>
+        <a href="#lookup">訂單查詢</a>
         <a href="#contact">聯絡</a>
       </nav>
       <div class="header-actions">
@@ -57,6 +58,7 @@
       <a href="#policy">盲盒說明</a>
       <a href="#order">結帳</a>
       <a href="#faq">常見問題</a>
+      <a href="#lookup">訂單查詢</a>
       <a href="#contact">聯絡</a>
     </nav>
   </header>
@@ -151,7 +153,7 @@
         <div class="section-head">
           <p class="kicker">Checkout</p>
           <h2>購物車與訂單</h2>
-          <p>填妥資料後送出訂單。我們會以 Email 回覆匯款資訊，確認收款後再寄出。</p>
+          <p>填妥資料後送出訂單，畫面會顯示訂單編號與匯款資訊，確認收款後再寄出。</p>
         </div>
         <div class="cart-layout">
           <div class="panel">
@@ -200,15 +202,17 @@
               </label>
             </div>
             <div class="checkout-actions">
-              <button type="button" class="btn btn-ink" id="submit-order">以 Email 送出訂單</button>
+              <button type="button" class="btn btn-ink" id="submit-order">送出訂單</button>
               <button type="button" class="btn btn-ghost" id="copy-order">複製訂單內容</button>
             </div>
             <p class="note">
-              按下送出後，會開啟你的電子郵件並預填訂單內容，收件人為 <a data-href="email" href="mailto:haickaiservice@gmail.com">haickaiservice@gmail.com</a>。請確認後按下傳送。若未能開啟郵件，請複製訂單內容，自行寄到同一信箱。付款方式為匯款／轉帳，帳戶資訊將於回信中提供。
+              按下送出後，系統會建立訂單並顯示訂單編號、應付金額與匯款資訊，可隨時於下方「訂單查詢」確認進度。若線上下單暫時無法使用，會改為開啟你的電子郵件並預填訂單內容，收件人為 <a data-href="email" href="mailto:haickaiservice@gmail.com">haickaiservice@gmail.com</a>，請確認後按下傳送；若郵件未能開啟，請複製訂單內容自行寄到同一信箱。付款方式為匯款／轉帳。
             </p>
             <div class="confirm" id="order-confirm" role="status">
-              <h4>訂單已準備送出</h4>
-              <p>你的訂單編號是 <span class="order-no" id="confirm-order-no"></span>。請在郵件視窗中按下傳送。我們會回信提供匯款資訊；確認收款後，將以 7-ELEVEN 交貨便店到店寄至你指定的門市，約 3 至 5 個工作天出貨。若郵件沒有開啟，請將上方訂單內容寄至 haickaiservice@gmail.com。</p>
+              <h4 id="confirm-title">訂單已準備送出</h4>
+              <div id="confirm-body">
+                <p>你的訂單編號是 <span class="order-no" id="confirm-order-no"></span>。請在郵件視窗中按下傳送。我們會回信提供匯款資訊；確認收款後，將以 7-ELEVEN 交貨便店到店寄至你指定的門市，約 3 至 5 個工作天出貨。若郵件沒有開啟，請將上方訂單內容寄至 haickaiservice@gmail.com。</p>
+              </div>
             </div>
           </div>
         </div>
@@ -257,7 +261,33 @@
       </div>
     </section>
 
-    <section class="section" id="contact">
+    <section class="section" id="lookup">
+      <div class="container">
+        <div class="section-head">
+          <p class="kicker">Order status</p>
+          <h2>訂單查詢</h2>
+          <p>輸入訂單編號與下單時填寫的手機號碼，即可查看付款與出貨進度。</p>
+        </div>
+        <div class="panel lookup-panel">
+          <form class="form-grid" id="lookup-form" novalidate>
+            <div class="field-row">
+              <label>訂單編號
+                <input id="lookup-order-no" type="text" name="order-no" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="GB-20260101-ABCD" maxlength="16" required>
+              </label>
+              <label>手機號碼
+                <input id="lookup-phone" type="tel" name="lookup-phone" autocomplete="tel" inputmode="tel" placeholder="09xxxxxxxx" maxlength="12" required>
+              </label>
+            </div>
+            <div class="checkout-actions">
+              <button type="submit" class="btn btn-ink" id="lookup-submit">查詢訂單</button>
+            </div>
+          </form>
+          <div class="lookup-result" id="lookup-result" role="status" aria-live="polite" hidden></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section section-alt" id="contact">
       <div class="container contact-block">
         <div class="section-head">
           <p class="kicker">Contact</p>
@@ -279,6 +309,5 @@
 
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
   <script src="js/app.js"></script>
-  <script>document.getElementById("year").textContent = new Date().getFullYear();</script>
 </body>
 </html>

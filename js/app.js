@@ -5,7 +5,11 @@ const CONFIG = {
   email: "haickaiservice@gmail.com",
   storeLookupUrl: "https://emap.pcsc.com.tw/",
   shippingName: "7-ELEVEN 交貨便・本島一般店到店",
-  freeShippingThreshold: 600, // 商品小計滿此金額免運
+  freeShippingThreshold: 600, // 商品小計滿此金額免運（需與 server/src/products.js 一致）
+  // 訂單 API 位置。相對路徑：頁面在 /shop/ 時會送到 /shop/api。
+  // API 無法連線時（例如 GitHub Pages 預覽），結帳會自動改用 Email 送出訂單。
+  apiBase: "api",
+  apiTimeoutMs: 12000,
   products: [
     {
       id: "ring",
@@ -43,7 +47,9 @@ const MAX_QTY = 10;
 
 const state = {
   cart: loadCart(),
-  orderNo: ""
+  orderNo: "",
+  idempotencyKey: "",
+  submitting: false
 };
 
 function loadCart() {
@@ -97,6 +103,62 @@ function setText(selector, text) {
   document.querySelectorAll(selector).forEach((el) => {
     el.textContent = text;
   });
+}
+
+function resetPendingOrder() {
+  state.orderNo = "";
+  state.idempotencyKey = "";
+}
+
+function escapeHtml(value) {
+  return String(value ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
+}
+
+function normalizePhone(value) {
+  let s = String(value || "").replace(/[\s\-()]/g, "");
+  if (s.startsWith("+886")) s = "0" + s.slice(4);
+  return s;
+}
+
+function randomKey() {
+  if (crypto.randomUUID) return crypto.randomUUID();
+  const arr = new Uint8Array(16);
+  crypto.getRandomValues(arr);
+  return Array.from(arr, (n) => n.toString(16).padStart(2, "0")).join("");
+}
+
+function apiUrl(path) {
+  const base = CONFIG.apiBase.endsWith("/") ? CONFIG.apiBase : CONFIG.apiBase + "/";
+  return new URL(base + path, document.baseURI).toString();
+}
+
+/* 呼叫 API。回傳 { reachable, status, data }；網路錯誤、逾時或回應不是本站 API（如靜態主機的 404 頁）時 reachable 為 false。 */
+async function callApi(path, options = {}) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), CONFIG.apiTimeoutMs);
+  try {
+    const res = await fetch(apiUrl(path), {
+      ...options,
+      headers: { Accept: "application/json", ...(options.headers || {}) },
+      signal: controller.signal,
+      cache: "no-store"
+    });
+    const type = res.headers.get("content-type") || "";
+    let data = null;
+    if (type.includes("application/json")) {
+      try {
+        data = await res.json();
+      } catch {
+        data = null;
+      }
+    }
+    if (!data || typeof data.ok !== "boolean") return { reachable: false, status: res.status, data: null };
+    return { reachable: true, status: res.status, data };
+  } catch {
+    return { reachable: false, status: 0, data: null };
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 function generateOrderNo() {
@@ -176,7 +238,7 @@ function addToCart(id, qty) {
   const existing = state.cart.find((i) => i.id === id);
   if (existing) existing.qty = Math.min(MAX_QTY, existing.qty + qty);
   else state.cart.push({ id, qty: Math.min(MAX_QTY, qty) });
-  state.orderNo = "";
+  resetPendingOrder();
   saveCart();
   renderCart();
 }
@@ -187,7 +249,7 @@ function setCartQty(id, qty) {
     const item = state.cart.find((i) => i.id === id);
     if (item) item.qty = Math.min(MAX_QTY, qty);
   }
-  state.orderNo = "";
+  resetPendingOrder();
   saveCart();
   renderCart();
 }
@@ -329,9 +391,8 @@ function validateBuyer() {
     document.getElementById("buyer-name")?.focus();
     return false;
   }
-  const digits = b.phone.replace(/\D/g, "");
-  if (digits.length < 8) {
-    toast("請填寫有效的聯絡電話");
+  if (!/^09\d{8}$/.test(normalizePhone(b.phone))) {
+    toast("請填寫 09 開頭的 10 碼手機號碼");
     document.getElementById("buyer-phone")?.focus();
     return false;
   }
@@ -382,21 +443,217 @@ function mailtoHref() {
   return `mailto:${CONFIG.email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
 }
 
+/* Email 備援流程（API 無法使用時）的確認訊息 */
 function showConfirmation() {
   const box = document.getElementById("order-confirm");
-  const no = document.getElementById("confirm-order-no");
-  if (no) no.textContent = state.orderNo;
+  const title = document.getElementById("confirm-title");
+  const body = document.getElementById("confirm-body");
+  if (title) title.textContent = "訂單已準備送出";
+  if (body) {
+    body.innerHTML = `<p>你的訂單編號是 <span class="order-no">${escapeHtml(state.orderNo)}</span>。請在郵件視窗中按下傳送。我們會回信提供匯款資訊；確認收款後，將以 7-ELEVEN 交貨便店到店寄至你指定的門市，約 3 至 5 個工作天出貨。若郵件沒有開啟，請將上方訂單內容寄至 ${escapeHtml(CONFIG.email)}。</p>`;
+  }
+  box?.classList.remove("is-error");
   box?.classList.add("is-visible");
 }
 
-async function submitOrder() {
-  if (!validateBuyer()) return;
+/* 線上下單成功：顯示伺服器回傳的訂單編號、金額與匯款資訊 */
+function showServerConfirmation(order, payment) {
+  const box = document.getElementById("order-confirm");
+  const title = document.getElementById("confirm-title");
+  const body = document.getElementById("confirm-body");
+  const items = (order.items || [])
+    .map((i) => `<li>${escapeHtml(i.name)} × ${escapeHtml(i.qty)}　${formatNT(i.lineTotal)}</li>`)
+    .join("");
+  let bank = "";
+  if (payment && payment.configured) {
+    bank = `
+      <dl>
+        <dt>銀行</dt><dd>${escapeHtml(payment.bankName)}${payment.bankCode ? `（${escapeHtml(payment.bankCode)}）` : ""}</dd>
+        <dt>帳號</dt><dd class="order-no">${escapeHtml(payment.account)}</dd>
+        <dt>戶名</dt><dd>${escapeHtml(payment.accountName)}</dd>
+      </dl>`;
+  }
+  if (title) title.textContent = "訂單已成立";
+  if (body) {
+    body.innerHTML = `
+      <p>你的訂單編號是 <span class="order-no">${escapeHtml(order.orderNo)}</span>，請記下此編號以便查詢。</p>
+      <dl>
+        <dt>商品小計</dt><dd>${formatNT(order.subtotal)}</dd>
+        <dt>運費</dt><dd>${order.shipping === 0 ? "免運" : formatNT(order.shipping)}</dd>
+        <dt>應付金額</dt><dd class="amount">${formatNT(order.total)}</dd>
+      </dl>
+      <ul>${items}</ul>
+      ${bank}
+      <p>${escapeHtml(payment?.message || "")}</p>
+      <p>可隨時於「訂單查詢」以訂單編號與手機號碼查看進度，問題請來信 ${escapeHtml(CONFIG.email)}。</p>`;
+  }
+  box?.classList.remove("is-error");
+  box?.classList.add("is-visible");
+  box?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+}
+
+const FIELD_INPUT_IDS = {
+  name: "buyer-name",
+  phone: "buyer-phone",
+  email: "buyer-email",
+  storeName: "store-name",
+  storeId: "store-no",
+  note: "buyer-notes"
+};
+
+/* Email 備援：沿用原本的複製＋mailto 流程 */
+async function submitOrderByEmail() {
   ensureOrderNo();
   updateOrderText();
   await copyOrder();
   const href = mailtoHref();
   window.location.href = href;
   showConfirmation();
+}
+
+function setSubmitting(on) {
+  state.submitting = on;
+  const btn = document.getElementById("submit-order");
+  if (!btn) return;
+  btn.disabled = on;
+  btn.textContent = on ? "送出中…" : "送出訂單";
+}
+
+async function submitOrder() {
+  if (state.submitting) return;
+  if (!validateBuyer()) return;
+  const b = buyerValues();
+  if (!state.idempotencyKey) state.idempotencyKey = randomKey();
+  const payload = {
+    name: b.name,
+    phone: normalizePhone(b.phone),
+    email: b.email,
+    storeName: b.storeName,
+    storeId: b.storeNo.replace(/\D/g, ""),
+    note: b.notes,
+    items: state.cart.map((i) => ({ id: i.id, qty: i.qty }))
+  };
+
+  setSubmitting(true);
+  let result;
+  try {
+    result = await callApi("orders", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "Idempotency-Key": state.idempotencyKey },
+      body: JSON.stringify(payload)
+    });
+  } finally {
+    setSubmitting(false);
+  }
+
+  const { reachable, status, data } = result;
+  if (reachable && data.ok) {
+    state.cart = [];
+    saveCart();
+    resetPendingOrder();
+    ["buyer-notes"].forEach((id) => {
+      const el = document.getElementById(id);
+      if (el) el.value = "";
+    });
+    renderCart();
+    showServerConfirmation(data.order, data.payment);
+    toast(`訂單已成立：${data.order.orderNo}`);
+    return;
+  }
+  if (reachable && status === 400) {
+    const fields = data.fields || {};
+    const first = Object.keys(fields)[0];
+    toast(first ? fields[first] : data.message || "訂單資料有誤，請再確認");
+    if (first && FIELD_INPUT_IDS[first]) document.getElementById(FIELD_INPUT_IDS[first])?.focus();
+    return;
+  }
+  if (reachable && status === 429) {
+    toast(data.message || "送出次數過多，請稍後再試");
+    return;
+  }
+  // API 無法連線或伺服器錯誤：改用 Email 送出
+  toast("線上下單暫時無法使用，已改為以 Email 送出訂單");
+  await submitOrderByEmail();
+}
+
+/* 訂單查詢 */
+function renderLookupResult(html) {
+  const box = document.getElementById("lookup-result");
+  if (!box) return;
+  box.innerHTML = html;
+  box.hidden = false;
+}
+
+function formatDateTime(iso) {
+  if (!iso) return "";
+  try {
+    return new Date(iso).toLocaleString("zh-Hant-TW", { timeZone: "Asia/Taipei", hour12: false });
+  } catch {
+    return iso;
+  }
+}
+
+async function lookupOrder(e) {
+  e?.preventDefault();
+  const noEl = document.getElementById("lookup-order-no");
+  const phoneEl = document.getElementById("lookup-phone");
+  const orderNo = (noEl?.value || "").trim().toUpperCase();
+  const phone = normalizePhone(phoneEl?.value || "");
+  if (!/^GB-\d{8}-[A-Z0-9]{4}$/.test(orderNo)) {
+    toast("請輸入正確的訂單編號，例如 GB-20260101-ABCD");
+    noEl?.focus();
+    return;
+  }
+  if (!/^09\d{8}$/.test(phone)) {
+    toast("請輸入下單時填寫的 09 開頭手機號碼");
+    phoneEl?.focus();
+    return;
+  }
+  const btn = document.getElementById("lookup-submit");
+  if (btn) {
+    btn.disabled = true;
+    btn.textContent = "查詢中…";
+  }
+  let result;
+  try {
+    result = await callApi(`orders/${encodeURIComponent(orderNo)}?phone=${encodeURIComponent(phone)}`);
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.textContent = "查詢訂單";
+    }
+  }
+  const { reachable, data } = result;
+  if (!reachable) {
+    renderLookupResult(`<p>線上查詢暫時無法使用，請來信 <a href="mailto:${escapeHtml(CONFIG.email)}">${escapeHtml(CONFIG.email)}</a> 並附上訂單編號，我們會盡快回覆。</p>`);
+    return;
+  }
+  if (!data.ok) {
+    renderLookupResult(`<p>${escapeHtml(data.message || "查無此訂單，請確認訂單編號與手機號碼")}</p>`);
+    return;
+  }
+  const o = data.order;
+  const items = (o.items || []).map((i) => `<li>${escapeHtml(i.name)} × ${escapeHtml(i.qty)}　${formatNT(i.lineTotal)}</li>`).join("");
+  const rows = [
+    ["下單時間", formatDateTime(o.createdAt)],
+    ["取件人", o.name],
+    ["取貨門市", `${o.storeName}（${o.storeId}）`],
+    ["應付金額", `${formatNT(o.total)}（運費 ${o.shipping === 0 ? "免運" : formatNT(o.shipping)}）`]
+  ];
+  if (o.paidAt) rows.push(["確認收款", formatDateTime(o.paidAt)]);
+  if (o.shippedAt) rows.push(["出貨時間", formatDateTime(o.shippedAt)]);
+  if (o.trackingNo) rows.push(["交貨便寄件編號", o.trackingNo]);
+  let pay = "";
+  if (o.status === "pending_payment" && o.payment) {
+    pay = o.payment.configured
+      ? `<p>匯款帳戶：${escapeHtml(o.payment.bankName)}${o.payment.bankCode ? `（${escapeHtml(o.payment.bankCode)}）` : ""} ${escapeHtml(o.payment.account)}，戶名 ${escapeHtml(o.payment.accountName)}。</p><p>${escapeHtml(o.payment.message)}</p>`
+      : `<p>${escapeHtml(o.payment.message)}</p>`;
+  }
+  renderLookupResult(`
+    <h4>${escapeHtml(o.orderNo)}<span class="status-badge${o.status === "cancelled" ? " is-cancelled" : ""}">${escapeHtml(o.statusLabel)}</span></h4>
+    <dl>${rows.map(([k, v]) => `<dt>${escapeHtml(k)}</dt><dd>${escapeHtml(v)}</dd>`).join("")}</dl>
+    <ul>${items}</ul>
+    ${pay}`);
 }
 
 function bindUi() {
@@ -425,6 +682,7 @@ function bindUi() {
     showConfirmation();
   });
   document.getElementById("submit-order")?.addEventListener("click", submitOrder);
+  document.getElementById("lookup-form")?.addEventListener("submit", lookupOrder);
   document.querySelectorAll("[data-scroll-cart]").forEach((el) => {
     el.addEventListener("click", (e) => {
       e.preventDefault();
@@ -452,4 +710,6 @@ document.addEventListener("DOMContentLoaded", () => {
   renderProducts();
   renderCart();
   bindUi();
+  const year = document.getElementById("year");
+  if (year) year.textContent = String(new Date().getFullYear());
 });

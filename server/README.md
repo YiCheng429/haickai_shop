@@ -140,7 +140,7 @@ curl -X PATCH -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/js
 | `BASE_PATH` | 預設 `/shop` |
 | `TRUST_PROXY` | 在 nginx 後方設 `1`；前面再加一層 Cloudflare 時設 `2` |
 
-匯款帳戶：`BANK_NAME=國泰世華`、`BANK_CODE=013`、`BANK_ACCOUNT=127506292433`（已填入 `.env.example`）。`BANK_ACCOUNT_NAME`（戶名）選填，未填時下單畫面、訂單查詢與通知信都不顯示戶名那一行；`BANK_ACCOUNT` 未設定時，下單畫面改顯示「匯款資訊將以 Email 寄給你」。
+匯款帳戶示範值已填入 `.env.example`：`BANK_NAME=示範銀行（Demo Bank）`、`BANK_CODE=000`、`BANK_ACCOUNT=0000-0000-0000（Demo 示範帳號）`、`BANK_ACCOUNT_NAME=Demo 示範戶名`。這些是示範資料，不是真實帳戶，請勿用於實際匯款。`BANK_ACCOUNT_NAME`（戶名）選填，未填時下單畫面、訂單查詢與通知信都不顯示戶名那一行；`BANK_ACCOUNT` 未設定時，下單畫面改顯示「匯款資訊將以 Email 寄給你」。
 
 出貨說明：下單成功畫面、訂單查詢與通知信都會提醒「交貨便寄件成立後，取貨通知會以 Email 與簡訊傳送給你」（文字在 `src/payment.js` 的 `SHIPPING_NOTICE`）。
 

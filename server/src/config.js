@@ -37,10 +37,10 @@ const config = {
   lookupRateLimit: int(process.env.LOOKUP_RATE_LIMIT, 30),
   reportRateLimit: int(process.env.REPORT_RATE_LIMIT, 10),
   bank: {
-    name: process.env.BANK_NAME || "",
-    code: process.env.BANK_CODE || "",
-    account: process.env.BANK_ACCOUNT || "",
-    accountName: process.env.BANK_ACCOUNT_NAME || "",
+    name: process.env.BANK_NAME || "示範銀行（Demo Bank）",
+    code: process.env.BANK_CODE || "000",
+    account: process.env.BANK_ACCOUNT || "0000-0000-0000（Demo 示範帳號）",
+    accountName: process.env.BANK_ACCOUNT_NAME || "Demo 示範戶名",
     deadlineHours: int(process.env.PAYMENT_DEADLINE_HOURS, 48)
   },
   shopName: process.env.SHOP_NAME || "微光盲盒 Glimmer Box",

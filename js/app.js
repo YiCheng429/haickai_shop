@@ -534,6 +534,7 @@ function showServerConfirmation(order, payment) {
           <button type="button" class="btn btn-ghost btn-copy" data-copy="${escapeHtml(payment.account)}" data-copy-label="帳號">複製帳號</button>
         </div>
         ${payment.accountName ? `<div class="success-bank-row"><dt>戶名</dt><dd>${escapeHtml(payment.accountName)}</dd></div>` : ""}
+        <p class="success-remind">${escapeHtml(payment.demoNotice || "此為示範／Demo 帳戶，並非真實匯款帳號，請勿實際匯款。")}</p>
       </div>`;
   } else {
     bank = `<p>${escapeHtml(payment?.message || "匯款資訊將另外通知。")}</p>`;
@@ -554,7 +555,7 @@ function showServerConfirmation(order, payment) {
       <ul>${items}</ul>
       <p>商品小計 ${formatNT(order.subtotal)}　運費 ${order.shipping === 0 ? "免運" : formatNT(order.shipping)}</p>
       ${bank}
-      <p class="success-remind">匯款後，請到「訂單查詢」回報轉出帳號後五碼，方便我們核對入帳。</p>
+      <p class="success-remind">若這是實際訂單流程測試，匯款後可到「訂單查詢」回報轉出帳號後五碼。請記得上方帳戶為示範資料，請勿實際匯款。</p>
       <button type="button" class="btn btn-ink success-jump" id="jump-lookup">前往訂單查詢（已帶入編號與手機）</button>
       ${reportFormHtml(order.orderNo, state.lastPhone, null)}
       <p>問題請來信 ${escapeHtml(CONFIG.email)}。</p>`;
